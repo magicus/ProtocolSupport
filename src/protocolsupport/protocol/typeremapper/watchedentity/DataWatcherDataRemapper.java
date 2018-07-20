@@ -8,6 +8,7 @@ import protocolsupport.protocol.utils.datawatcher.DataWatcherDeserializer;
 import protocolsupport.protocol.utils.datawatcher.DataWatcherObject;
 import protocolsupport.protocol.utils.types.networkentity.NetworkEntity;
 import protocolsupport.utils.CollectionsUtils.ArrayMap;
+import protocolsupport.utils.Utils;
 
 public class DataWatcherDataRemapper {
 
@@ -35,6 +36,11 @@ public class DataWatcherDataRemapper {
 
 	public ArrayMap<DataWatcherObject<?>> getRemapped() {
 		return remappedMetadata;
+	}
+
+	@Override
+	public String toString() {
+		return Utils.toStringAllFields(this);
 	}
 
 }

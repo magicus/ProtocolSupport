@@ -8,6 +8,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.EncoderException;
+import protocolsupport.ProtocolSupport;
 import protocolsupport.api.Connection;
 import protocolsupport.api.utils.NetworkState;
 import protocolsupport.protocol.packet.middle.ClientBoundMiddlePacket;
@@ -42,6 +43,9 @@ public abstract class AbstractPacketEncoder extends MessageToMessageEncoder<Byte
 		NetworkState currentProtocol = connection.getNetworkState();
 		try {
 			ClientBoundMiddlePacket packetTransformer = registry.getTransformer(currentProtocol, VarNumberSerializer.readVarInt(input));
+			if (ProtocolSupport.isPacketDebugging()) {
+				ProtocolSupport.logInfo(MessageFormat.format("PE_SEND: {0}", packetTransformer));
+			}
 			packetTransformer.readFromServerData(input);
 			if (packetTransformer.postFromServerRead()) {
 				try (RecyclableCollection<ClientBoundPacketData> data = processPackets(ctx.channel(), packetTransformer.toData())) {
