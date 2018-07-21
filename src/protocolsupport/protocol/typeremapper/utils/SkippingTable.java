@@ -7,7 +7,7 @@ import gnu.trove.map.hash.TIntByteHashMap;
 
 public class SkippingTable {
 
-	public static abstract class IntSkippingTable extends SkippingTable {
+	public abstract static class IntSkippingTable extends SkippingTable {
 
 		public abstract void setSkip(int id);
 

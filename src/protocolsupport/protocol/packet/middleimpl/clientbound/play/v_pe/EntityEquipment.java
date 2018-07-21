@@ -15,7 +15,7 @@ import protocolsupport.utils.recyclable.RecyclableSingletonList;
 import protocolsupport.zplatform.itemstack.ItemStackWrapper;
 
 public class EntityEquipment extends MiddleEntityEquipment {
-	
+
 	@Override
 	public RecyclableCollection<ClientBoundPacketData> toData() {
 		ProtocolVersion version = connection.getVersion();
@@ -30,19 +30,19 @@ public class EntityEquipment extends MiddleEntityEquipment {
 			ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.MOB_ARMOR_EQUIPMENT, version);
 			VarNumberSerializer.writeVarLong(serializer, entityId);
 			switch (slot) {
-				case (2): {
+				case 2: {
 					dataCache.setBoots(itemstack);
 					break;
 				}
-				case (3): {
+				case 3: {
 					dataCache.setLeggings(itemstack);
 					break;
 				}
-				case (4): {
+				case 4: {
 					dataCache.setChestplate(itemstack);
 					break;
 				}
-				case (5): {
+				case 5: {
 					dataCache.setHelmet(itemstack);
 					break;
 				}

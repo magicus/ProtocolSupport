@@ -163,16 +163,17 @@ public class GlowStonePacketFactory implements PlatformPacketFactory {
 	public Message createInboundInventoryConfirmTransactionPacket(int windowId, int actionNumber, boolean accepted) {
 		return new TransactionMessage(windowId, actionNumber, accepted);
 	}
-	
+
 	@Override
 	public Message createInboundCustomPayloadPacket(String tag, byte[] data) {
 		return new PluginMessage(tag, data);
 	}
-	
+
+	@Override
 	public Message createOutboundUpdateChunkPacket(Chunk chunk) {
 		return ((GlowChunk) chunk).toMessage();
 	}
-	
+
 	@Override
 	public Message createOutboundChatPacket(String message, int position) {
 		return new ChatMessage(new TextMessage(message), position);
@@ -229,6 +230,7 @@ public class GlowStonePacketFactory implements PlatformPacketFactory {
 		return new SetCompressionMessage(threshold);
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public Message createBlockBreakSoundPacket(Position pos, Material type) {
 		return null; // TODO: create a getStepSound() equivalent

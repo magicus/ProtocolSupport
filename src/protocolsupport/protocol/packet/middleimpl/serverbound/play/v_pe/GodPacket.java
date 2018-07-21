@@ -45,26 +45,7 @@ import protocolsupport.zplatform.itemstack.ItemStackWrapper;
 import protocolsupport.zplatform.itemstack.NBTTagCompoundWrapper;
 import protocolsupport.zplatform.itemstack.NBTTagType;
 
-/**
- * Lo and behold. The PE GodPacket. 
- * DKTAPPS THANK YOU FOR HELPING ME WITH THE VALUES! - This would be insufferable without him.
- * 
- * This packet handles amongst other things
- *  - Using items (Right clicking)
- *  - Interacting (left and right clicking mob)
- *  - Releasing items (shoot bow, eat food)
- *  - Getting creative items
- *  - Renaming items in anvil
- *  - Enchanting items using hopper (FFS)
- *  - MANAGING INVENTORY
- *  
- *  Apart from managing inventories it is the usual packet deal,
- *  except that we have an extra layer of encapsulation.
- *  
- *  Managing inventories works very different in PE, it sends slots, like creative instead of clicks.
- *  To simulate clicks we use a complex system that calculates them.
- *  Debugging can be a pain in the butt, I hope the comments can provide some help.
- */
+//The PE GodPacket! See [Documentation](https://github.com/ProtocolSupport/ProtocolSupport/wiki/PSPE:-GodPacket)
 public class GodPacket extends ServerBoundMiddlePacket {
 	
 	private static boolean godlyDebug = true;
@@ -89,10 +70,7 @@ public class GodPacket extends ServerBoundMiddlePacket {
 	@Override
 	public void readFromClientData(ByteBuf clientdata) {
 		String locale = cache.getAttributesCache().getLocale();
-		bug("NEEWWW GODPACKET! Hooraayy it's a god packet. Don't we all reeeaaally love godpackets? I do. IDDOODD I REALLY DO LOVE THEM. THTHISS IS THE BEST DAY IN MY LIFE.");
 		actionId = VarNumberSerializer.readVarInt(clientdata);
-		bug("ACTION: " + actionId);
-
 		transactions = new InfTransaction[VarNumberSerializer.readVarInt(clientdata)];
 		for(int i = 0; i < transactions.length; i++) {
 			transactions[i] = InfTransaction.readFromStream(clientdata, locale, connection.getVersion());
@@ -287,16 +265,14 @@ public class GodPacket extends ServerBoundMiddlePacket {
 					+ " oldItem: " + transaction.oldItem.toString()  + ((!transaction.oldItem.isNull()) ? transaction.oldItem.getTag() : "") + " newItem: " + transaction.newItem.toString() + (!transaction.newItem.isNull() ? transaction.newItem.getTag() : ""));
 			return transaction;
 		}
-		
+
 		public int getSourceId() {
 			return sourceId;
 		}
 
-
 		public int getInventoryId() {
 			return inventoryId;
 		}
-
 
 		public int getAction() {
 			return action;
@@ -310,7 +286,6 @@ public class GodPacket extends ServerBoundMiddlePacket {
 		public ItemStackWrapper getOldItem() {
 			return oldItem;
 		}
-
 
 		public ItemStackWrapper getNewItem() {
 			return newItem;

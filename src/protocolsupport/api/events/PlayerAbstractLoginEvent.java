@@ -2,12 +2,15 @@ package protocolsupport.api.events;
 
 import protocolsupport.api.Connection;
 
+@SuppressWarnings("deprecation")
 public abstract class PlayerAbstractLoginEvent extends PlayerEvent {
 
+	@Deprecated
 	public PlayerAbstractLoginEvent(Connection connection, String username, boolean async) {
 		super(connection, username, async);
 	}
 
+	@Deprecated
 	public PlayerAbstractLoginEvent(Connection connection, String username) {
 		this(connection, username, true);
 	}

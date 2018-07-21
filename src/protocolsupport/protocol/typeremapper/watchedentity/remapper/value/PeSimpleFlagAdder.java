@@ -17,7 +17,7 @@ public class PeSimpleFlagAdder extends DataWatcherDataRemapper {
 
 	@Override
 	public void remap(NetworkEntity entity, ArrayMap<DataWatcherObject<?>> original, ArrayMap<DataWatcherObject<?>> remapped) {
-		for(int i = 0; i < flags.length; i++) {
+		for (int i = 0; i < flags.length; i++) {
 			entity.getDataCache().setPeBaseFlag(flags[i], set[i]);
 		}
 	}

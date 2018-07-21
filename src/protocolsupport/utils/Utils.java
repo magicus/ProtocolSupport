@@ -111,9 +111,9 @@ public class Utils {
 		}
 		return (number + base) - mod;
 	}
-	
+
 	public static int shortDegree(int number, int system) {
-		if (number <= (system/-2)) { number += system; } 
+		if (number <= (system/-2)) { number += system; }
 		if (number > (system/2)) { number -= system; }
 		return number;
 	}

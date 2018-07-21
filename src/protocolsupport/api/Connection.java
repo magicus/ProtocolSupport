@@ -251,7 +251,7 @@ public abstract class Connection {
 			protected boolean cancelled;
 
 			/**
-			 * Returns packet
+			 * Returns main packet (packet that triggered this event)
 			 * @return native packet instance
 			 */
 			public Object getPacket() {

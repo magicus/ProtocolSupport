@@ -5,6 +5,10 @@ import java.net.InetSocketAddress;
 import protocolsupport.api.Connection;
 import protocolsupport.api.ProtocolSupportAPI;
 
+/**
+ * @deprecated This class isn't useful anymore
+ */
+@Deprecated
 public abstract class PlayerEvent extends ConnectionEvent {
 
 	private final String username;
@@ -18,13 +22,13 @@ public abstract class PlayerEvent extends ConnectionEvent {
 		this(connection, username, true);
 	}
 
-	@Deprecated
 	public PlayerEvent(InetSocketAddress address, String username) {
 		this(ProtocolSupportAPI.getConnection(address), username);
 	}
 
 	/**
-	 * Returns the player nickname associated with this event
+	 * Returns the player original nickname <br>
+	 * Returns {@link Profile#getOriginalName()}
 	 * @return player nickname
 	 */
 	public String getName() {

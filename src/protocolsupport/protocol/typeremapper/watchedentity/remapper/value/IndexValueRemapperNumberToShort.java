@@ -15,5 +15,4 @@ public final class IndexValueRemapperNumberToShort extends IndexValueRemapper<Re
 		return new DataWatcherObjectShort(object.getValue().shortValue());
 	}
 
-
 }

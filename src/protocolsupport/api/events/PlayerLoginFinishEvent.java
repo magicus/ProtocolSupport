@@ -17,6 +17,7 @@ public class PlayerLoginFinishEvent extends PlayerAbstractLoginEvent {
 	private final UUID uuid;
 	private final boolean onlineMode;
 
+	@Deprecated
 	public PlayerLoginFinishEvent(Connection connection, String username, UUID uuid, boolean onlineMode) {
 		super(connection, username);
 		this.uuid = uuid;
@@ -31,7 +32,9 @@ public class PlayerLoginFinishEvent extends PlayerAbstractLoginEvent {
 	/**
 	 * Returns player uuid
 	 * @return player uuid
+	 * @deprecated Use {@link Profile#getUUID()} (profile can be acquired using {@link Connection#getProfile()})
 	 */
+	@Deprecated
 	public UUID getUUID() {
 		return uuid;
 	}

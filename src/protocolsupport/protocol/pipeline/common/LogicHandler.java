@@ -22,6 +22,7 @@ import protocolsupport.protocol.storage.ProtocolStorage;
 import protocolsupport.zplatform.ServerPlatform;
 import protocolsupport.zplatform.network.NetworkManagerWrapper;
 
+@SuppressWarnings("deprecation")
 public class LogicHandler extends ChannelDuplexHandler {
 
 	protected static final HashSet<Class<? extends Throwable>> ignoreExceptions = new HashSet<>();

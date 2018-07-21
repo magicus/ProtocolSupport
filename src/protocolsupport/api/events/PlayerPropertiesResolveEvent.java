@@ -13,8 +13,10 @@ import protocolsupport.api.ProtocolSupportAPI;
 import protocolsupport.utils.Utils;
 
 /**
- * This event is fired after receiving player properties
+ * This event is fired after player profile complete (either after doing online-mode checks, or after generating offline-mode profile)
+ * @deprecated Use {@link PlayerLoginFinishEvent}
  */
+@Deprecated
 public class PlayerPropertiesResolveEvent extends PlayerEvent {
 
 	private final HashMap<String, ProfileProperty> properties = new HashMap<>();
@@ -26,7 +28,6 @@ public class PlayerPropertiesResolveEvent extends PlayerEvent {
 		}
 	}
 
-	@Deprecated
 	public PlayerPropertiesResolveEvent(InetSocketAddress address, String username, Collection<ProfileProperty> properties) {
 		this(ProtocolSupportAPI.getConnection(address), username, properties);
 	}

@@ -9,7 +9,7 @@ import protocolsupport.api.Connection;
 import protocolsupport.api.ProtocolSupportAPI;
 
 /**
- * This event is fired after player login start (after login start packet which contains client username)
+ * This event is fired after receiving client username (login start packet)
  */
 public class PlayerLoginStartEvent extends PlayerAbstractLoginEvent {
 
@@ -18,6 +18,7 @@ public class PlayerLoginStartEvent extends PlayerAbstractLoginEvent {
 	private boolean useonlinemodeuuid;
 	private UUID uuid;
 
+	@Deprecated
 	public PlayerLoginStartEvent(Connection connection, String username, boolean onlinemode, boolean useonlinemodeuuid, String hostname) {
 		super(connection, username);
 		this.onlinemode = onlinemode;
@@ -60,7 +61,9 @@ public class PlayerLoginStartEvent extends PlayerAbstractLoginEvent {
 	 * Only used if player authed using online-mode checks <br>
 	 * By default returns same value as server online-mode setting
 	 * @return true if online-mode uuid will be assigned to player
+	 * @deprecated Use {@link PlayerProfileCompleteEvent}
 	 */
+	@Deprecated
 	public boolean useOnlineModeUUID() {
 		return useonlinemodeuuid;
 	}
@@ -69,7 +72,9 @@ public class PlayerLoginStartEvent extends PlayerAbstractLoginEvent {
 	 * Sets if online-mode uuid will be assigned to player <br>
 	 * Only used if player authed using online-mode checks
 	 * @param useonlinemodeuuid if online-mode uuid will be assigned to player
+	 * @deprecated Use {@link PlayerProfileCompleteEvent#setForcedUUID(UUID)} and {@link Profile#generateOfflineModeUUID(String)}
 	 */
+	@Deprecated
 	public void setUseOnlineModeUUID(boolean useonlinemodeuuid) {
 		this.useonlinemodeuuid = useonlinemodeuuid;
 	}
@@ -77,7 +82,9 @@ public class PlayerLoginStartEvent extends PlayerAbstractLoginEvent {
 	/**
 	 * Returns true if has forced uuid
 	 * @return true if has forced uuid
+	 * @deprecated Use {@link PlayerProfileCompleteEvent}
 	 */
+	@Deprecated
 	public boolean hasForcedUUID() {
 		return uuid != null;
 	}
@@ -87,7 +94,9 @@ public class PlayerLoginStartEvent extends PlayerAbstractLoginEvent {
 	 * If set to null, server-selected uuid will be used <br>
 	 * This option overrides any other uuid options (like {@link #useOnlineModeUUID()})
 	 * @param uuid forced uuid
+	 * @deprecated Use {@link PlayerProfileCompleteEvent#setForcedUUID(UUID)}
 	 */
+	@Deprecated
 	public void setForcedUUID(UUID uuid) {
 		this.uuid = uuid;
 	}
@@ -96,7 +105,9 @@ public class PlayerLoginStartEvent extends PlayerAbstractLoginEvent {
 	 * Gets currently set forced uuid or null if not set <br>
 	 * By default returns null
 	 * @return currently set forced uuid
+	 * @deprecated Use {@link PlayerProfileCompleteEvent#getForcedUUID()}
 	 */
+	@Deprecated
 	public UUID getForcedUUID() {
 		return uuid;
 	}

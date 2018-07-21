@@ -16,13 +16,12 @@ public class EntityStatus extends ServerBoundMiddlePacket {
 	protected long entityId;
 	protected byte status;
 	protected int data;
-	
+
 	@Override
 	public void readFromClientData(ByteBuf clientdata) {
 		entityId = VarNumberSerializer.readVarLong(clientdata);
 		status = clientdata.readByte();
 		data = VarNumberSerializer.readSVarInt(clientdata);
-		System.out.println("ENTITYEVENT!!! " + entityId + " - " + status + " - " + data);
 	}
 
 	@Override

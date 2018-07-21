@@ -27,6 +27,7 @@ public class GlowStoneNettyInjector {
 			try {
 				injectFinishedLatch.await();
 			} catch (InterruptedException e) {
+				System.err.println("Interrupted while waiting for inject finish");
 				e.printStackTrace();
 			}
 		});

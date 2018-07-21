@@ -24,7 +24,6 @@ public class InventorySetSlot extends MiddleInventorySetSlot {
 		}
 		String locale = cache.getAttributesCache().getLocale();
 		if (slot == -1) {
-			//TODO: Figure out how to not fuck this up.
 			//Cursor slot can be set by plugin (only if a window is actually open), this will cause issues however with the deficit/surplus stack so we add them manually here.
 			invCache.getInfTransactions().customCursorSurplus(cache, itemstack);
 			return RecyclableSingletonList.create(create(version, locale, PESource.POCKET_CLICKED_SLOT, 0, itemstack));
@@ -126,11 +125,11 @@ public class InventorySetSlot extends MiddleInventorySetSlot {
 				return RecyclableSingletonList.create(create(version, locale, windowId, slot, itemstack));
 			}
 		}
+		
 		return RecyclableEmptyList.get();
 	}
 	
 	public static ClientBoundPacketData create(ProtocolVersion version, String locale, int windowId, int slot, ItemStackWrapper itemstack) {
-		System.err.println("SLOTTTY: " + slot);
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.INVENTORY_SLOT, version);
 		VarNumberSerializer.writeVarInt(serializer, windowId);
 		VarNumberSerializer.writeVarInt(serializer, slot);

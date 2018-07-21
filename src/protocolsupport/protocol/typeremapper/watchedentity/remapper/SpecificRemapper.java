@@ -66,7 +66,6 @@ public enum SpecificRemapper {
 				DataCache data = entity.getDataCache();
 				PocketEntityData pocketdata = PocketData.getPocketEntityData(entity.getType());
 				float entitySize = PEMetaProviderSPI.getProvider().getSizeScale(entity.getUUID(), entity.getId(), entity.getType().getBukkitType()) * data.getSizeModifier();
-				
 				// = PE Lead =
 				//Leashing is set in Entity Leash.
 				entity.getDataCache().setPeBaseFlag(PeMetaBase.FLAG_LEASHED, data.getAttachedId() != -1);
@@ -80,11 +79,9 @@ public enum SpecificRemapper {
 				if (doNametag) { 
 					remapped.put(4, nameTagWatcher); 
 				}
-
 				// = PE Riding =
 				entity.getDataCache().setPeBaseFlag(PeMetaBase.FLAG_COLLIDE, !data.isRiding());
 				if (data.isRiding()) {
-					System.out.println("RIDERPOSITION: " + data.getRiderPosition());
 					entity.getDataCache().setPeBaseFlag(PeMetaBase.FLAG_RIDING, true);
 					remapped.put(57, new DataWatcherObjectVector3fLe(data.getRiderPosition()));
 					remapped.put(58, new DataWatcherObjectByte((byte) ((data.getRotationlock() != null) ? 1 : 0)));
@@ -96,7 +93,6 @@ public enum SpecificRemapper {
 				} else {
 					entity.getDataCache().setPeBaseFlag(PeMetaBase.FLAG_RIDING, false);
 				}
-
 				// = PE Air =
 				AtomicInteger air = new AtomicInteger(0);
 				getObject(original, DataWatcherObjectIndex.Entity.AIR, DataWatcherObjectVarInt.class).ifPresent(airWatcher -> {
@@ -301,7 +297,6 @@ public enum SpecificRemapper {
 					remapped.put(16, new DataWatcherObjectVarInt(((byteWatcher.getValue() & (1 << (6-1))) != 0) ? 0b100000 : 0));
 					System.out.println(((byteWatcher.getValue() & (1 << (2-1))) != 0));
 					if ((byteWatcher.getValue() & (1 << (2-1))) != 0) {
-						System.out.println("Wierd inventoryproperties set.");
 						//When tamed set these weird properties to make the inventory work. FFS Mojang.
 						remapped.put(45, new DataWatcherObjectByte((byte) 12));
 						remapped.put(46, new DataWatcherObjectVarInt(2));

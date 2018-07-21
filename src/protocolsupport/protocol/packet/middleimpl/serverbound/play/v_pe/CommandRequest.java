@@ -43,4 +43,5 @@ public class CommandRequest extends ServerBoundMiddlePacket {
 	public RecyclableCollection<ServerBoundPacketData> toNative() {
 		return RecyclableSingletonList.create(MiddleChat.create(command));
 	}
+
 }

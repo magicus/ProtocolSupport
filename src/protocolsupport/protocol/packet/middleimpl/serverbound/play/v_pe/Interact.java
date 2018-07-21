@@ -45,4 +45,5 @@ public class Interact extends ServerBoundMiddlePacket {
 		}
 		return RecyclableEmptyList.get();
 	}
+
 }

@@ -135,12 +135,11 @@ public class InventorySetItems extends MiddleInventorySetItems {
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.INVENTORY_CONTENT, version);
 		VarNumberSerializer.writeVarInt(serializer, windowId);
 		VarNumberSerializer.writeVarInt(serializer, itemstacks.length);
-		//Also get the nulls for remapped slots in between ;)
+		//Also get the nulls for remapped slots in between.
 		for (int i = 0; i < itemstacks.length; i++) {
 			ItemStackSerializer.writeItemStack(serializer, version, locale, itemstacks[i], true);
 		}
-		//System.out.println("Sending inventory contents of " + windowId);
 		return serializer;
 	}
-	
+
 }
