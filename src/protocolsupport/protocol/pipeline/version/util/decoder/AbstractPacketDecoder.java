@@ -8,6 +8,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.MessageToMessageDecoder;
+import protocolsupport.ProtocolSupport;
 import protocolsupport.api.Connection;
 import protocolsupport.protocol.packet.middle.ServerBoundMiddlePacket;
 import protocolsupport.protocol.packet.middleimpl.ServerBoundPacketData;
@@ -36,6 +37,10 @@ public abstract class AbstractPacketDecoder extends MessageToMessageDecoder<Byte
 
 	protected void decodeAndTransform(Channel channel, ByteBuf buffer, List<Object> to) throws InstantiationException, IllegalAccessException {
 		ServerBoundMiddlePacket packetTransformer = registry.getTransformer(connection.getNetworkState(), readPacketId(buffer));
+		if (ProtocolSupport.isPacketDebugging()) {
+			ProtocolSupport.logInfo(MessageFormat.format("PE_RECV: {0}", packetTransformer));
+		}
+
 		packetTransformer.readFromClientData(buffer);
 		try (RecyclableCollection<ServerBoundPacketData> data = processPackets(channel, packetTransformer.toNative())) {
 			for (ServerBoundPacketData packetdata : data) {
