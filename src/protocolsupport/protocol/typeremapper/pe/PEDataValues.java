@@ -492,6 +492,11 @@ public class PEDataValues {
 		registerItemRemap(442, 268); // SHIELD -> WOODEN SWORD
 		registerItemRemap(439, 262); // SPECTRAL ARROW -> ARROW
 		registerItemRemap(343, 408); // POWERED MINECART -> MINECART WITH A HOPPER
+
+		// Only in PE; remap from PE to PC values (but not vice versa)
+
+		// STONECUTTER, remap to CRAFTING_TABLE
+		PE_ITEM_ID.setSingleRemap(245, 58, -1);
 	}
 
 	public static final IdRemappingRegistry<HashMapBasedIdRemappingTable> PARTICLE = new IdRemappingRegistry<HashMapBasedIdRemappingTable>() {
