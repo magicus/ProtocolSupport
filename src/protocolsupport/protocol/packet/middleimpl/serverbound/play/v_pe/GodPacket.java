@@ -2,10 +2,12 @@ package protocolsupport.protocol.packet.middleimpl.serverbound.play.v_pe;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import org.bukkit.Material;
 import protocolsupport.api.Connection;
 import protocolsupport.api.ProtocolVersion;
 import protocolsupport.listeners.InternalPluginMessageRequest;
 import protocolsupport.protocol.packet.middle.ServerBoundMiddlePacket;
+import protocolsupport.protocol.packet.middle.serverbound.play.MiddleBlockDig;
 import protocolsupport.protocol.packet.middle.serverbound.play.MiddleCustomPayload;
 import protocolsupport.protocol.packet.middleimpl.ServerBoundPacketData;
 import protocolsupport.protocol.serializer.ItemStackSerializer;
@@ -20,10 +22,13 @@ import protocolsupport.protocol.typeremapper.pe.inventory.PETransactionRemapper;
 import protocolsupport.protocol.typeremapper.pe.inventory.PEInventory.PESource;
 import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 import protocolsupport.protocol.utils.types.GameMode;
+import protocolsupport.protocol.utils.types.Position;
 import protocolsupport.protocol.utils.types.WindowType;
 import protocolsupport.utils.Utils;
 import protocolsupport.utils.recyclable.RecyclableArrayList;
 import protocolsupport.utils.recyclable.RecyclableCollection;
+import protocolsupport.utils.recyclable.RecyclableEmptyList;
+import protocolsupport.utils.recyclable.RecyclableSingletonList;
 import protocolsupport.zplatform.itemstack.ItemStackWrapper;
 import protocolsupport.zplatform.itemstack.NBTTagCompoundWrapper;
 import protocolsupport.zplatform.itemstack.NBTTagType;
@@ -70,9 +75,13 @@ public class GodPacket extends ServerBoundMiddlePacket {
 		for(int i = 0; i < transactions.length; i++) {
 			transactions[i] = InvTransaction.readFromStream(clientdata, locale, connection.getVersion());
 		}
+		System.out.println("We got " + transactions.length + " transactions!!!");
 		switch (actionId) {
 			case ACTION_USE_ITEM: {
 				simpleActionMiddlePacket = useItemMiddlePacket;
+				if (transactions.length > 0 && transactions[0].newItem.getType() == Material.WATER_BUCKET) {
+					System.out.println("We got a water bucket!!!");
+				}
 				break;
 			}
 			case ACTION_USE_ENTITY: {
@@ -108,7 +117,26 @@ public class GodPacket extends ServerBoundMiddlePacket {
 		WindowCache winCache = cache.getWindowCache();
 		RecyclableArrayList<ServerBoundPacketData> packets = RecyclableArrayList.create();
 		if (simpleActionMiddlePacket != null) {
-			packets.addAll(simpleActionMiddlePacket.toNative());
+			if (simpleActionMiddlePacket == useItemMiddlePacket) {
+				Position position = new Position((int) cache.getMovementCache().getPEClientX(),
+					(int) cache.getMovementCache().getPEClientY(),
+					(int) cache.getMovementCache().getPEClientZ());
+
+				if (transactions.length > 0 && transactions[0].newItem.getType() == Material.WATER_BUCKET) {
+					System.out.println("SENDING a water bucket!!!");
+					packets.add(MiddleBlockDig.create(MiddleBlockDig.Action.CANCEL_DIG, position, 0));
+					packets.add(MiddleBlockDig.create(MiddleBlockDig.Action.START_DIG, position, 1));
+					packets.add(MiddleBlockDig.create(MiddleBlockDig.Action.CANCEL_DIG, position, 0));
+				} else {
+					packets.addAll(simpleActionMiddlePacket.toNative());
+
+				}
+
+
+			} else {
+				packets.addAll(simpleActionMiddlePacket.toNative());
+
+			}
 		} else if (actionId == ACTION_NORMAL) {
 			PETransactionRemapper remapper = invCache.getTransactionRemapper();
 			cache.getPEInventoryCache().lockInventory();

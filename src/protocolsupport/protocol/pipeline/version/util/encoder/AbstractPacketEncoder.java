@@ -13,6 +13,9 @@ import protocolsupport.api.Connection;
 import protocolsupport.api.utils.NetworkState;
 import protocolsupport.protocol.packet.middle.ClientBoundMiddlePacket;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
+import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityHeadRotation;
+import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityTeleport;
+import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityVelocity;
 import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.storage.netcache.NetworkDataCache;
@@ -44,7 +47,13 @@ public abstract class AbstractPacketEncoder extends MessageToMessageEncoder<Byte
 		try {
 			ClientBoundMiddlePacket packetTransformer = registry.getTransformer(currentProtocol, VarNumberSerializer.readVarInt(input));
 			if (ProtocolSupport.isPacketDebugging()) {
-				ProtocolSupport.logInfo(MessageFormat.format("PE_SEND: {0}", packetTransformer));
+				if (packetTransformer.getClass() == EntityTeleport.class ||
+					packetTransformer.getClass() == EntityHeadRotation.class ||
+					packetTransformer.getClass() == EntityVelocity.class) {
+					// ignore TimeUpdate Noop
+				} else {
+					ProtocolSupport.logInfo(MessageFormat.format("PE_SEND: {0}", packetTransformer));
+				}
 			}
 			packetTransformer.readFromServerData(input);
 			if (packetTransformer.postFromServerRead()) {
