@@ -54,6 +54,16 @@ public class NetworkDataCache {
 		return inventorycache;
 	}
 
+	protected final CustomPayloadChannelsCache cpccache = new CustomPayloadChannelsCache();
+	public CustomPayloadChannelsCache getChannelsCache() {
+		return cpccache;
+	}
+
+	protected final TileDataCache tilecache = new TileDataCache();
+	public TileDataCache getTileCache() {
+		return tilecache;
+	}
+
 	@Override
 	public String toString() {
 		return Utils.toStringAllFields(this);

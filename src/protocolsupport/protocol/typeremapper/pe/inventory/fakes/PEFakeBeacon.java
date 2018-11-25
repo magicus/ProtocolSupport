@@ -1,20 +1,24 @@
 package protocolsupport.protocol.typeremapper.pe.inventory.fakes;
 
+import org.bukkit.Material;
+
 import protocolsupport.api.ProtocolVersion;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.BlockChangeSingle;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.BlockTileUpdate;
 import protocolsupport.protocol.storage.netcache.NetworkDataCache;
 import protocolsupport.protocol.storage.netcache.PEInventoryCache;
+import protocolsupport.protocol.typeremapper.pe.PEBlocks;
 import protocolsupport.protocol.utils.types.Position;
+import protocolsupport.protocol.utils.types.TileEntity;
+import protocolsupport.protocol.utils.types.TileEntityType;
 import protocolsupport.protocol.utils.types.WindowType;
+import protocolsupport.protocol.utils.types.nbt.NBTCompound;
+import protocolsupport.protocol.utils.types.nbt.NBTInt;
+import protocolsupport.protocol.utils.types.nbt.NBTString;
 import protocolsupport.utils.recyclable.RecyclableArrayList;
-import protocolsupport.zplatform.ServerPlatform;
-import protocolsupport.zplatform.itemstack.NBTTagCompoundWrapper;
 
 public class PEFakeBeacon {
-
-	private static final int EMERALD_BLOCK = 133 << 4;
 
 	private int level = 0;
 	private int primary = 0;
@@ -43,7 +47,8 @@ public class PEFakeBeacon {
 						Position block = position.clone();
 						block.mod(x, -i, z);
 						invCache.getFakeContainers().addLast(block);
-						packets.add(BlockChangeSingle.create(version, block, EMERALD_BLOCK));
+						BlockChangeSingle.create(version, block,
+								PEBlocks.toPocketBlock(version, Material.EMERALD_BLOCK), packets);
 					}
 				}
 			}
@@ -55,11 +60,12 @@ public class PEFakeBeacon {
 		RecyclableArrayList<ClientBoundPacketData> packets = RecyclableArrayList.create();
 		PEInventoryCache invCache = cache.getPEInventoryCache();
 		if (cache.getWindowCache().getOpenedWindow() == WindowType.BEACON && invCache.getFakeContainers().hasFirst()) {
-			NBTTagCompoundWrapper tag = ServerPlatform.get().getWrapperFactory().createEmptyNBTCompound();
-			tag.setString("id", "beacon");
-			tag.setInt("primary", primary);
-			tag.setInt("secondary", secondary);
-			packets.add(BlockTileUpdate.create(version, invCache.getFakeContainers().getFirst(), tag));
+			NBTCompound tag = new NBTCompound();
+			tag.setTag("id", new NBTString("beacon"));
+			tag.setTag("primary", new NBTInt(primary));
+			tag.setTag("secondary", new NBTInt(secondary));
+			TileEntity tile = new TileEntity(TileEntityType.BEACON, invCache.getFakeContainers().getFirst(), tag);
+			packets.add(BlockTileUpdate.create(version, tile));
 		}
 		return packets;
 	}

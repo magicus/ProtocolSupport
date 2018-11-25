@@ -4,14 +4,14 @@ import protocolsupport.protocol.typeremapper.pe.inventory.PETransactionRemapper;
 import protocolsupport.protocol.typeremapper.pe.inventory.fakes.PEFakeBeacon;
 import protocolsupport.protocol.typeremapper.pe.inventory.fakes.PEFakeEnchanting;
 import protocolsupport.protocol.typeremapper.pe.inventory.fakes.PEFakeVillager;
+import protocolsupport.protocol.utils.types.NetworkItemStack;
 import protocolsupport.protocol.utils.types.Position;
 import protocolsupport.utils.Utils;
 import protocolsupport.utils.ArrayDequeMultiMap.ChildDeque;
-import protocolsupport.zplatform.itemstack.ItemStackWrapper;
 
 public class PEInventoryCache {
 
-	private ItemStackWrapper itemInHand = ItemStackWrapper.NULL;
+	private NetworkItemStack itemInHand = NetworkItemStack.NULL;
 	private final PETransactionRemapper transactionRemapper = new PETransactionRemapper();
 	private final PEFakeBeacon fakeBeacon = new PEFakeBeacon();
 	private final PEFakeEnchanting fakeEnchanting = new PEFakeEnchanting();
@@ -25,11 +25,11 @@ public class PEInventoryCache {
 	private int PEActionNumber = 0;
 	private int previousWindowId = 0;
 
-	public ItemStackWrapper getItemInHand() {
+	public NetworkItemStack getItemInHand() {
 		return itemInHand; 
 	}
 
-	public void setItemInHand(ItemStackWrapper itemInHand) {
+	public void setItemInHand(NetworkItemStack itemInHand) {
 		this.itemInHand = itemInHand;
 	}
 

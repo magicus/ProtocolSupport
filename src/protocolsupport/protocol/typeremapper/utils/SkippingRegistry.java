@@ -1,19 +1,31 @@
 package protocolsupport.protocol.typeremapper.utils;
 
+import java.text.MessageFormat;
 import java.util.EnumMap;
 
 import protocolsupport.api.ProtocolVersion;
 import protocolsupport.protocol.typeremapper.utils.SkippingTable.EnumSkippingTable;
 import protocolsupport.protocol.typeremapper.utils.SkippingTable.GenericSkippingTable;
 import protocolsupport.protocol.typeremapper.utils.SkippingTable.IntSkippingTable;
-import protocolsupport.utils.Utils;
 
 public abstract class SkippingRegistry<T extends SkippingTable> {
 
 	private final EnumMap<ProtocolVersion, T> registry = new EnumMap<>(ProtocolVersion.class);
 
+	public SkippingRegistry() {
+		clear();
+	}
+
+	public void clear() {
+		for (ProtocolVersion version : ProtocolVersion.getAllSupported()) {
+			registry.put(version, createTable());
+		}
+	}
+
 	public T getTable(ProtocolVersion version) {
-		return Utils.getFromMapOrCreateDefault(registry, version, createTable());
+		return registry.computeIfAbsent(version, k -> {
+			throw new IllegalArgumentException(MessageFormat.format("Missing remapping table for version {0}", k));
+		});
 	}
 
 	protected abstract T createTable();

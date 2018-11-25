@@ -15,9 +15,9 @@ import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.storage.netcache.NetworkDataCache;
 import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
+import protocolsupport.protocol.utils.networkentity.NetworkEntity;
+import protocolsupport.protocol.utils.networkentity.NetworkEntityType;
 import protocolsupport.protocol.utils.types.MerchantData;
-import protocolsupport.protocol.utils.types.networkentity.NetworkEntity;
-import protocolsupport.protocol.utils.types.networkentity.NetworkEntityType;
 
 public class PEFakeVillager {
 
@@ -55,8 +55,6 @@ public class PEFakeVillager {
 	public void despawnVillager(Connection connection) {
 		ByteBuf serializer = Unpooled.buffer();
 		VarNumberSerializer.writeVarInt(serializer, PEPacketIDs.ENTITY_DESTROY);
-		serializer.writeByte(0);
-		serializer.writeByte(0);
 		serializer.writeBytes(EntityDestroy.create(villager.getId()));
 		spawned = false;
 		connection.sendRawPacket(MiscSerializer.readAllBytes(serializer));

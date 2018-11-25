@@ -1,15 +1,18 @@
 package protocolsupport.protocol.typeremapper.chunk;
 
-import protocolsupport.api.ProtocolVersion;
-import protocolsupport.protocol.typeremapper.id.IdRemapper;
+import protocolsupport.protocol.storage.netcache.TileDataCache;
+import protocolsupport.protocol.typeremapper.basic.TileNBTRemapper;
+import protocolsupport.protocol.typeremapper.block.PreFlatteningBlockIdData;
 import protocolsupport.protocol.typeremapper.utils.RemappingTable.ArrayBasedIdRemappingTable;
-import protocolsupport.protocol.utils.minecraftdata.MinecraftData;
 
-public class ChunkTransformerByte extends ChunkTransformer {
+public class ChunkTransformerByte extends ChunkTransformerBA {
+
+	public ChunkTransformerByte(ArrayBasedIdRemappingTable blockRemappingTable, TileNBTRemapper tileremapper, TileDataCache tilecache) {
+		super(blockRemappingTable, tileremapper, tilecache);
+	}
 
 	@Override
-	public byte[] toLegacyData(ProtocolVersion version) {
-		ArrayBasedIdRemappingTable table = IdRemapper.BLOCK.getTable(version);
+	public byte[] toLegacyData() {
 		byte[] data = new byte[((hasSkyLight ? 10240 : 8192) * columnsCount) + 256];
 		int blockIdIndex = 0;
 		int blockDataIndex = 4096 * columnsCount;
@@ -21,9 +24,9 @@ public class ChunkTransformerByte extends ChunkTransformer {
 				BlockStorageReader storage = section.blockdata;
 				int blockdataacc = 0;
 				for (int block = 0; block < blocksInSection; block++) {
-					int blockstate = table.getRemap(storage.getBlockState(block));
-					data[blockIdIndex + block] = (byte) MinecraftData.getBlockIdFromState(blockstate);
-					byte blockdata = (byte) MinecraftData.getBlockDataFromState(blockstate);
+					int blockstate = PreFlatteningBlockIdData.getCombinedId(blockTypeRemappingTable.getRemap(getBlockState(i, storage, block)));
+					data[blockIdIndex + block] = (byte) PreFlatteningBlockIdData.getIdFromCombinedId(blockstate);
+					byte blockdata = (byte) PreFlatteningBlockIdData.getDataFromCombinedId(blockstate);
 					if ((block & 1) == 0) {
 						blockdataacc = blockdata;
 					} else {
@@ -42,7 +45,9 @@ public class ChunkTransformerByte extends ChunkTransformer {
 			}
 		}
 		if (hasBiomeData) {
-			System.arraycopy(biomeData, 0, data, skyLightIndex, 256);
+			for (int i = 0; i < biomeData.length; i++) {
+				data[skyLightIndex + i] = (byte) biomeData[i];
+			}
 		}
 		return data;
 	}

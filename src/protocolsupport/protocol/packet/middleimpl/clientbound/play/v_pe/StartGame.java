@@ -3,6 +3,8 @@ package protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe;
 import org.bukkit.Bukkit;
 
 import protocolsupport.api.ProtocolVersion;
+import protocolsupport.listeners.InternalPluginMessageRequest;
+import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.clientbound.play.MiddleStartGame;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
 import protocolsupport.protocol.packet.middleimpl.clientbound.login.v_pe.LoginSuccess;
@@ -11,18 +13,22 @@ import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.storage.netcache.AttributesCache;
 import protocolsupport.protocol.typeremapper.pe.PEAdventureSettings;
+import protocolsupport.protocol.typeremapper.pe.PEBlocks;
 import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
 import protocolsupport.protocol.typeremapper.pe.inventory.PEInventory.PESource;
-import protocolsupport.protocol.utils.types.Environment;
+import protocolsupport.protocol.utils.networkentity.NetworkEntity;
 import protocolsupport.protocol.utils.types.GameMode;
 import protocolsupport.protocol.utils.types.Position;
-import protocolsupport.protocol.utils.types.networkentity.NetworkEntity;
 import protocolsupport.utils.recyclable.RecyclableArrayList;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.zplatform.impl.pe.PECraftingManager;
 import protocolsupport.zplatform.impl.pe.PECreativeInventory;
 
 public class StartGame extends MiddleStartGame {
+
+	public StartGame(ConnectionImpl connection) {
+		super(connection);
+	}
 
 	@Override
 	public RecyclableCollection<ClientBoundPacketData> toData() {
@@ -49,8 +55,8 @@ public class StartGame extends MiddleStartGame {
 		startgame.writeFloatLE(0); //player x
 		startgame.writeFloatLE(0); //player y
 		startgame.writeFloatLE(0); //player z
-		startgame.writeFloatLE(0); //player yaw
 		startgame.writeFloatLE(0); //player pitch
+		startgame.writeFloatLE(0); //player yaw
 		VarNumberSerializer.writeSVarInt(startgame, 0); //seed
 		VarNumberSerializer.writeSVarInt(startgame, ChangeDimension.getPeDimensionId(dimension)); //world dimension
 		VarNumberSerializer.writeSVarInt(startgame, 1); //world type (1 - infinite)
@@ -68,10 +74,10 @@ public class StartGame extends MiddleStartGame {
 		startgame.writeBoolean(false); //broadcast to xbl
 		startgame.writeBoolean(true); //commands enabled
 		startgame.writeBoolean(false); //needs texture pack
-		VarNumberSerializer.writeVarInt(startgame, 1); //game rules
-		StringSerializer.writeString(startgame, version, "dodaylightcycle");
-		VarNumberSerializer.writeVarInt(startgame, 1); //bool gamerule
-		startgame.writeBoolean(false);
+		VarNumberSerializer.writeVarInt(startgame, 0); //game rules
+		//StringSerializer.writeString(startgame, version, "dodaylightcycle");
+		//VarNumberSerializer.writeVarInt(startgame, 1); //bool gamerule
+		startgame.writeBoolean(false); //bonus chest
 		startgame.writeBoolean(false); //player map enabled
 		startgame.writeBoolean(false); //trust players
 		VarNumberSerializer.writeSVarInt(startgame, PEAdventureSettings.GROUP_NORMAL); //permission level
@@ -83,25 +89,29 @@ public class StartGame extends MiddleStartGame {
 		startgame.writeBoolean(false); //hasLockedRes pack
 		startgame.writeBoolean(false); //hasLockedBeh pack
 		startgame.writeBoolean(false); //hasLocked world template.
+		startgame.writeBoolean(false); //Microsoft GamerTags only. Hell no!
 		StringSerializer.writeString(startgame, connection.getVersion(), ""); //level ID (empty string)
 		StringSerializer.writeString(startgame, connection.getVersion(), ""); //world name (empty string)
 		StringSerializer.writeString(startgame, connection.getVersion(), ""); //premium world template id (empty string)
 		startgame.writeBoolean(false); //is trial
 		startgame.writeLongLE(0); //world ticks
 		VarNumberSerializer.writeSVarInt(startgame, 0); //enchantment seed FFS MOJANG
+		startgame.writeBytes(PEBlocks.getPocketRuntimeDefinition());
+		StringSerializer.writeString(startgame, version, ""); //Multiplayer correlation id.
 		packets.add(startgame);
 		//Player metadata and settings update, so it won't behave strangely until metadata update is sent by server
 		packets.add(PEAdventureSettings.createPacket(cache));
 		packets.add(EntityMetadata.createFaux(player, cache.getAttributesCache().getLocale(), version));
 		//Can now switch to game state
-		packets.add(LoginSuccess.createPlayStatus(3));
+		packets.add(LoginSuccess.createPlayStatus(LoginSuccess.PLAYER_SPAWN));
 		//Send chunk radius update without waiting for request, works anyway
 		//PE uses circle to calculate visible chunks, so the view distance should cover all chunks that are sent by server (pc square should fit into pe circle)
 		ClientBoundPacketData chunkradius = ClientBoundPacketData.create(PEPacketIDs.CHUNK_RADIUS);
 		VarNumberSerializer.writeSVarInt(chunkradius, (int) Math.ceil((Bukkit.getViewDistance() + 1) * Math.sqrt(2)));
 		packets.add(chunkradius);
 		//Send crafting recipes
-		ClientBoundPacketData craftPacket = ClientBoundPacketData.create(PEPacketIDs.CRAFTING_DATA); 
+		//TODO: bungeecord should also request this from servers again
+		ClientBoundPacketData craftPacket = ClientBoundPacketData.create(PEPacketIDs.CRAFTING_DATA);
 		craftPacket.writeBytes(PECraftingManager.getInstance().getAllRecipes());
 		packets.add(craftPacket);
 		//Send all creative items (from PE json)
@@ -114,11 +124,8 @@ public class StartGame extends MiddleStartGame {
 		//Set PE gamemode.
 		AttributesCache attrscache = cache.getAttributesCache();
 		attrscache.setPEGameMode(gamemode);
-		//fake chunks with position, because pe doesn't like spawning in no chunk world
-		ChangeDimension.addFakeChunksAndPos(version, player, attrscache.getPEFakeSetPositionY(), packets);
-		//add two dimension switches to make sure that player ends up in right dimension even if bungee dimension switch on server switch broke stuff
-		ChangeDimension.create(version, dimension != Environment.OVERWORLD ? Environment.OVERWORLD: Environment.THE_END, player, attrscache.getPEFakeSetPositionY(), packets);
-		ChangeDimension.create(version, dimension, player, attrscache.getPEFakeSetPositionY(), packets);
+		//Lock client bound packet queue until LocalPlayerInitialised or bungee confirm.
+		packets.add(CustomPayload.create(version, InternalPluginMessageRequest.PELockChannel));
 		return packets;
 	}
 

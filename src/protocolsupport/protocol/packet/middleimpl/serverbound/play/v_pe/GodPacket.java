@@ -1,67 +1,46 @@
 package protocolsupport.protocol.packet.middleimpl.serverbound.play.v_pe;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import org.bukkit.Material;
-import protocolsupport.api.Connection;
 import protocolsupport.api.ProtocolVersion;
 import protocolsupport.listeners.InternalPluginMessageRequest;
+import protocolsupport.listeners.internal.InventoryUpdateRequest;
+import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.ServerBoundMiddlePacket;
-import protocolsupport.protocol.packet.middle.serverbound.play.MiddleBlockDig;
-import protocolsupport.protocol.packet.middle.serverbound.play.MiddleCustomPayload;
+import protocolsupport.protocol.packet.middle.serverbound.play.MiddleNameItem;
 import protocolsupport.protocol.packet.middleimpl.ServerBoundPacketData;
 import protocolsupport.protocol.serializer.ItemStackSerializer;
-import protocolsupport.protocol.serializer.MiscSerializer;
-import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
-import protocolsupport.protocol.storage.netcache.NetworkDataCache;
 import protocolsupport.protocol.storage.netcache.PEInventoryCache;
 import protocolsupport.protocol.storage.netcache.WindowCache;
+import protocolsupport.protocol.typeremapper.pe.inventory.PEInventory.PESource;
 import protocolsupport.protocol.typeremapper.pe.inventory.PESlotRemapper;
 import protocolsupport.protocol.typeremapper.pe.inventory.PETransactionRemapper;
-import protocolsupport.protocol.typeremapper.pe.inventory.PEInventory.PESource;
-import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 import protocolsupport.protocol.utils.types.GameMode;
-import protocolsupport.protocol.utils.types.Position;
+import protocolsupport.protocol.utils.types.NetworkItemStack;
 import protocolsupport.protocol.utils.types.WindowType;
+import protocolsupport.protocol.utils.types.nbt.NBTCompound;
+import protocolsupport.protocol.utils.types.nbt.NBTString;
+import protocolsupport.protocol.utils.types.nbt.NBTType;
 import protocolsupport.utils.Utils;
 import protocolsupport.utils.recyclable.RecyclableArrayList;
 import protocolsupport.utils.recyclable.RecyclableCollection;
-import protocolsupport.utils.recyclable.RecyclableEmptyList;
-import protocolsupport.utils.recyclable.RecyclableSingletonList;
-import protocolsupport.zplatform.itemstack.ItemStackWrapper;
-import protocolsupport.zplatform.itemstack.NBTTagCompoundWrapper;
-import protocolsupport.zplatform.itemstack.NBTTagType;
 
 //The PE GodPacket! See [Documentation](https://github.com/ProtocolSupport/ProtocolSupport/wiki/PSPE:-GodPacket)
 public class GodPacket extends ServerBoundMiddlePacket {
 
-	//Wrapped packet
+	public GodPacket(ConnectionImpl connection) {
+		super(connection);
+	}
+
 	protected static final int ACTION_NORMAL = 0;
 	protected static final int ACTION_MISMATCH = 1;
 	protected static final int ACTION_USE_ITEM = 2;
 	protected static final int ACTION_USE_ENTITY = 3;
 	protected static final int ACTION_RELEASE_ITEM = 4;
 
-	protected UseItem useItemMiddlePacket = new UseItem();
-	protected UseEntity useEntityMiddlePacket = new UseEntity();
-	protected ReleaseItem releaseItemMiddlePacket = new ReleaseItem();
-
-	@Override
-	public void setConnection(Connection connection) {
-		super.setConnection(connection);
-		useItemMiddlePacket.setConnection(connection);
-		useEntityMiddlePacket.setConnection(connection);
-		releaseItemMiddlePacket.setConnection(connection);
-	}
-
-	@Override
-	public void setSharedStorage(NetworkDataCache sharedstorage) {
-		super.setSharedStorage(sharedstorage);
-		useItemMiddlePacket.setSharedStorage(sharedstorage);
-		useEntityMiddlePacket.setSharedStorage(sharedstorage);
-		releaseItemMiddlePacket.setSharedStorage(sharedstorage);
-	}
+	protected UseItem useItemMiddlePacket = new UseItem(connection);
+	protected UseEntity useEntityMiddlePacket = new UseEntity(connection);
+	protected ReleaseItem releaseItemMiddlePacket = new ReleaseItem(connection);
 
 	protected int actionId;
 	protected InvTransaction[] transactions;
@@ -75,13 +54,9 @@ public class GodPacket extends ServerBoundMiddlePacket {
 		for(int i = 0; i < transactions.length; i++) {
 			transactions[i] = InvTransaction.readFromStream(clientdata, locale, connection.getVersion());
 		}
-		System.out.println("We got " + transactions.length + " transactions!!!");
 		switch (actionId) {
 			case ACTION_USE_ITEM: {
 				simpleActionMiddlePacket = useItemMiddlePacket;
-				if (transactions.length > 0 && transactions[0].newItem.getType() == Material.WATER_BUCKET) {
-					System.out.println("We got a water bucket!!!");
-				}
 				break;
 			}
 			case ACTION_USE_ENTITY: {
@@ -117,26 +92,7 @@ public class GodPacket extends ServerBoundMiddlePacket {
 		WindowCache winCache = cache.getWindowCache();
 		RecyclableArrayList<ServerBoundPacketData> packets = RecyclableArrayList.create();
 		if (simpleActionMiddlePacket != null) {
-			if (simpleActionMiddlePacket == useItemMiddlePacket) {
-				Position position = new Position((int) cache.getMovementCache().getPEClientX(),
-					(int) cache.getMovementCache().getPEClientY(),
-					(int) cache.getMovementCache().getPEClientZ());
-
-				if (transactions.length > 0 && transactions[0].newItem.getType() == Material.WATER_BUCKET) {
-					System.out.println("SENDING a water bucket!!!");
-					packets.add(MiddleBlockDig.create(MiddleBlockDig.Action.CANCEL_DIG, position, 0));
-					packets.add(MiddleBlockDig.create(MiddleBlockDig.Action.START_DIG, position, 1));
-					packets.add(MiddleBlockDig.create(MiddleBlockDig.Action.CANCEL_DIG, position, 0));
-				} else {
-					packets.addAll(simpleActionMiddlePacket.toNative());
-
-				}
-
-
-			} else {
-				packets.addAll(simpleActionMiddlePacket.toNative());
-
-			}
+			packets.addAll(simpleActionMiddlePacket.toNative());
 		} else if (actionId == ACTION_NORMAL) {
 			PETransactionRemapper remapper = invCache.getTransactionRemapper();
 			cache.getPEInventoryCache().lockInventory();
@@ -158,7 +114,7 @@ public class GodPacket extends ServerBoundMiddlePacket {
 		}
 		if (invCache.shouldSendUpdate() && cache.getAttributesCache().getPEGameMode() != GameMode.CREATIVE) {
 			//Trigger inventory update, ALWAYS since PE sometimes 'guesses' or doesn't trust the server, we generally want an inventory update scheduled.
-			InternalPluginMessageRequest.receivePluginMessageRequest(connection, new InternalPluginMessageRequest.InventoryUpdateRequest(7));
+			InternalPluginMessageRequest.receivePluginMessageRequest(connection, new InventoryUpdateRequest(7));
 			invCache.lockInventoryUpdate();
 		}
 		return packets;
@@ -175,8 +131,8 @@ public class GodPacket extends ServerBoundMiddlePacket {
 		private int inventoryId;
 		private int action;
 		private int slot;
-		private ItemStackWrapper oldItem;
-		private ItemStackWrapper newItem;
+		private NetworkItemStack oldItem;
+		private NetworkItemStack newItem;
 
 		private static InvTransaction readFromStream(ByteBuf from, String locale, ProtocolVersion version) {
 			InvTransaction transaction = new InvTransaction();
@@ -205,13 +161,13 @@ public class GodPacket extends ServerBoundMiddlePacket {
 			transaction.slot = VarNumberSerializer.readVarInt(from);
 			transaction.oldItem = ItemStackSerializer.readItemStack(from, version, locale, true);
 			transaction.newItem = ItemStackSerializer.readItemStack(from, version, locale, true);
-			System.out.println("Inv transaction read:"
+			PETransactionRemapper.bug("Inv transaction read:"
 					+ " sId: " + transaction.sourceId 
 					+ " wId: " + transaction.inventoryId 
 					+ " action: " + transaction.action 
 					+ " slot: " + transaction.slot 
-					+ " oldItem: " + transaction.oldItem.toString()  + ((!transaction.oldItem.isNull()) ? transaction.oldItem.getTag() : "") 
-					+ " newItem: " + transaction.newItem.toString() + (!transaction.newItem.isNull() ? transaction.newItem.getTag() : ""));
+					+ " oldItem: " + transaction.oldItem.toString() + ((!transaction.oldItem.isNull() && transaction.oldItem.getNBT() != null) ? transaction.oldItem.getNBT() : "")
+					+ " newItem: " + transaction.newItem.toString() + ((!transaction.newItem.isNull() && transaction.newItem.getNBT() != null) ? transaction.newItem.getNBT() : ""));
 			return transaction;
 		}
 
@@ -243,11 +199,11 @@ public class GodPacket extends ServerBoundMiddlePacket {
 			return slot == CURSOR;
 		}
 
-		public ItemStackWrapper getOldItem() {
+		public NetworkItemStack getOldItem() {
 			return oldItem;
 		}
 
-		public ItemStackWrapper getNewItem() {
+		public NetworkItemStack getNewItem() {
 			return newItem;
 		}
 
@@ -261,13 +217,12 @@ public class GodPacket extends ServerBoundMiddlePacket {
 	protected static void processAnvilName(InvTransaction transaction, RecyclableArrayList<ServerBoundPacketData> packets) {
 		//Anvil naming is only done and known based on the clicked item.
 		if (transaction.getSlot() == 2 && !transaction.getOldItem().isNull()) {
-			NBTTagCompoundWrapper tag = transaction.getOldItem().getTag();
-			if (tag.hasKeyOfType("display", NBTTagType.COMPOUND)) {
-				NBTTagCompoundWrapper display = tag.getCompound("display");
-				if (display.hasKeyOfType("Name", NBTTagType.STRING)) {
-					ByteBuf payload = Unpooled.buffer();
-					StringSerializer.writeString(payload, ProtocolVersionsHelper.LATEST_PC, display.getString("Name"));
-					packets.add(MiddleCustomPayload.create("MC|ItemName", MiscSerializer.readAllBytes(payload)));
+			NBTCompound tag = transaction.getOldItem().getNBT();
+			NBTCompound display = tag.getTagOfType("display", NBTType.COMPOUND);
+			if (display != null) {
+				NBTString name = display.getTagOfType("Name", NBTType.STRING);
+				if (name != null) {
+					packets.add(MiddleNameItem.create(name.getValue()));
 				}
 			}
 		}

@@ -4,25 +4,31 @@ import org.bukkit.Material;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import protocolsupport.api.MaterialAPI;
 import protocolsupport.api.ProtocolVersion;
+import protocolsupport.protocol.utils.ProtocolVersionsHelper;
+import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.ServerBoundMiddlePacket;
 import protocolsupport.protocol.packet.middle.serverbound.play.MiddleCustomPayload;
 import protocolsupport.protocol.packet.middleimpl.ServerBoundPacketData;
 import protocolsupport.protocol.serializer.ItemStackSerializer;
 import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
-import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 import protocolsupport.protocol.utils.i18n.I18NData;
+import protocolsupport.protocol.utils.types.NetworkItemStack;
+import protocolsupport.protocol.utils.types.nbt.NBTCompound;
+import protocolsupport.protocol.utils.types.nbt.NBTList;
+import protocolsupport.protocol.utils.types.nbt.NBTString;
+import protocolsupport.protocol.utils.types.nbt.NBTType;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableEmptyList;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
-import protocolsupport.zplatform.ServerPlatform;
-import protocolsupport.zplatform.itemstack.ItemStackWrapper;
-import protocolsupport.zplatform.itemstack.NBTTagCompoundWrapper;
-import protocolsupport.zplatform.itemstack.NBTTagListWrapper;
-import protocolsupport.zplatform.itemstack.NBTTagType;
 
 public class BookEdit extends ServerBoundMiddlePacket {
+
+	public BookEdit(ConnectionImpl connection) {
+		super(connection);
+	}
 
 	protected byte type;
 	protected byte slot;
@@ -76,83 +82,80 @@ public class BookEdit extends ServerBoundMiddlePacket {
 
 	@Override
 	public RecyclableCollection<ServerBoundPacketData> toNative() {
-		ItemStackWrapper bookItem = cache.getPEInventoryCache().getItemInHand();
-		if (!bookItem.isNull() && bookItem.getType() == Material.BOOK_AND_QUILL) {
-			NBTTagCompoundWrapper bookNBT = bookItem.getTag() != null && !bookItem.getTag().isNull() ? bookItem.getTag() : ServerPlatform.get().getWrapperFactory().createEmptyNBTCompound();
-			NBTTagListWrapper pages = bookNBT.hasKeyOfType("pages", NBTTagType.LIST) ? bookNBT.getList("pages"): ServerPlatform.get().getWrapperFactory().createEmptyNBTList();
+		NetworkItemStack bookItem = cache.getPEInventoryCache().getItemInHand();
+		if (!bookItem.isNull() && MaterialAPI.getItemByNetworkId(bookItem.getTypeId()) == Material.WRITABLE_BOOK) {
+			NBTCompound bookNBT = bookItem.getNBT() != null ? bookItem.getNBT() : new NBTCompound();
+			NBTList<NBTString> pages = bookNBT.getTagListOfType("pages", NBTType.STRING);
 			int maxpage = ((pagenum + 1) > pages.size()) ? (pagenum + 1) : (pages.size());
+			//We can't set the text at an index, so we have to reiterate and construct a new pages list for each action.
+			NBTList<NBTString> newpages = new NBTList<>(NBTType.STRING);
 			switch(type) {
 				case TYPE_REPLACE: {
 					//Cut the crap. No text changed? No packet.
-					if ((pages.isEmpty() && text == "") || (pages.getString(pagenum).equals(text))) {
+					if ((pages.isEmpty() && text == "") || (pages.getTag(pagenum).getValue().equals(text))) {
 						return RecyclableEmptyList.get();
 					}
-					//We can't set the text at an index, so we have to reiterate and construct a new pages list.
-					NBTTagListWrapper newpages = ServerPlatform.get().getWrapperFactory().createEmptyNBTList();
 					for (int i = 0; i < maxpage; i++) {
 						if (i == pagenum) {
-							newpages.addString(text);
+							newpages.addTag(new NBTString(text));
 						} else {
 							if (i >= pages.size()) {
-								newpages.addString("");
+								newpages.addTag(new NBTString(""));
 							} else {
-								newpages.addString(pages.getString(i));
+								newpages.addTag(pages.getTag(i));
 							}
 						}
 					}
-					bookNBT.setList("pages", newpages);
-					bookItem.setTag(bookNBT);
+					bookNBT.setTag("pages", newpages);
+					bookItem.setNBT(bookNBT);
 					return RecyclableSingletonList.create(editBook(bookItem));
 				}
 				case TYPE_ADD: {
 					//Adding a page, means shifting too all the other pages, unless the page isn't there yet.
-					NBTTagListWrapper newpages = ServerPlatform.get().getWrapperFactory().createEmptyNBTList();
 					for (int i = 0; i < maxpage; i++) {
 						if (i == pagenum) {
-							newpages.addString(text);
+							newpages.addTag(new NBTString(text));
 						} else if (i >= pages.size()) {
-							newpages.addString("");
+							newpages.addTag(new NBTString(""));
 						} if (i < pages.size()) {
-							newpages.addString(pages.getString(i));
+							newpages.addTag(pages.getTag(i));
 						}
 					}
-					bookNBT.setList("pages", newpages);
-					bookItem.setTag(bookNBT);
+					bookNBT.setTag("pages", newpages);
+					bookItem.setNBT(bookNBT);
 					return RecyclableSingletonList.create(editBook(bookItem));
 				}
 				case TYPE_DELETE: {
 					//Deleting a page means sending everything except that page.
-					NBTTagListWrapper newpages = ServerPlatform.get().getWrapperFactory().createEmptyNBTList();
 					for (int i = 0; i < pages.size(); i++) {
 						if (i != pagenum) {
-							newpages.addString(pages.getString(i));
+							newpages.addTag(pages.getTag(i));
 						}
 					}
-					bookNBT.setList("pages", newpages);
-					bookItem.setTag(bookNBT);
+					bookNBT.setTag("pages", newpages);
+					bookItem.setNBT(bookNBT);
 					return RecyclableSingletonList.create(editBook(bookItem));
 				}
 				case TYPE_SWAP: {
 					//Swaping a page means sending everything, but two pages are swapped.
-					NBTTagListWrapper newpages = ServerPlatform.get().getWrapperFactory().createEmptyNBTList();
 					for (int i = 0; i < pages.size(); i++) {
 						if (i == pagenum) {
-							newpages.addString(pages.getString(pagenum2));
+							newpages.addTag(pages.getTag(pagenum2));
 						} else if (i == pagenum2) {
-							newpages.addString(pages.getString(pagenum));
+							newpages.addTag(pages.getTag(pagenum));
 						} else {
-							newpages.addString(pages.getString(i));
+							newpages.addTag(pages.getTag(i));
 						}
 					}
-					bookNBT.setList("pages", newpages);
-					bookItem.setTag(bookNBT);
+					bookNBT.setTag("pages", newpages);
+					bookItem.setNBT(bookNBT);
 					return RecyclableSingletonList.create(editBook(bookItem));
 				}
 				case TYPE_SIGN: {
-					bookNBT.setString("author", author);
-					bookNBT.setString("title", title);
-					bookNBT.setList("pages", pages);
-					bookItem.setTag(bookNBT);
+					bookNBT.setTag("author", new NBTString(author));
+					bookNBT.setTag("title", new NBTString(title));
+					bookNBT.setTag("pages", pages);
+					bookItem.setNBT(bookNBT);
 					return RecyclableSingletonList.create(signBook(bookItem));
 				}
 			}
@@ -160,16 +163,16 @@ public class BookEdit extends ServerBoundMiddlePacket {
 		return RecyclableEmptyList.get();
 	}
 	
-	private static ServerBoundPacketData editBook(ItemStackWrapper book) {
+	private static ServerBoundPacketData editBook(NetworkItemStack book) {
 		ByteBuf payload = Unpooled.buffer();
 		ItemStackSerializer.writeItemStack(payload, ProtocolVersionsHelper.LATEST_PC, I18NData.DEFAULT_LOCALE, book, false);
-		return MiddleCustomPayload.create("MC|BEdit", MiscSerializer.readAllBytes(payload));
+		return MiddleCustomPayload.create("minecraft:BEdit", MiscSerializer.readAllBytes(payload));
 	}
 	
-	private static ServerBoundPacketData signBook(ItemStackWrapper book) {
+	private static ServerBoundPacketData signBook(NetworkItemStack book) {
 		ByteBuf payload = Unpooled.buffer();
 		ItemStackSerializer.writeItemStack(payload, ProtocolVersionsHelper.LATEST_PC, I18NData.DEFAULT_LOCALE, book, false);
-		return MiddleCustomPayload.create("MC|BSign", MiscSerializer.readAllBytes(payload));
+		return MiddleCustomPayload.create("minecraft:BSign", MiscSerializer.readAllBytes(payload));
 	}
 
 }

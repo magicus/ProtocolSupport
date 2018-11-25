@@ -7,6 +7,8 @@ gen/
 dllibs/
 dllibss/
 dllibsc/
+/libraries_runtime/
+/libraries_shade/
 
 .externalToolBuilders/
  # Eclipse Files #
@@ -25,8 +27,6 @@ dllibsc/
 
 # IntelliJ
 .idea/
+out/
 *.iml
-
-# jRebel
-*.rebel.xml.bak
-resources/rebel.xml
+.idea/

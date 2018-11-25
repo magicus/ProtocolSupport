@@ -1,51 +1,47 @@
 package protocolsupport.protocol.typeremapper.chunk;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import protocolsupport.api.ProtocolVersion;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import protocolsupport.protocol.serializer.ArraySerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
+import protocolsupport.protocol.storage.netcache.TileDataCache;
+import protocolsupport.protocol.typeremapper.basic.TileNBTRemapper;
+import protocolsupport.protocol.typeremapper.utils.RemappingTable.ArrayBasedIdRemappingTable;
+import protocolsupport.protocol.utils.minecraftdata.MinecraftData;
+import protocolsupport.protocol.utils.types.ChunkCoord;
+import protocolsupport.protocol.utils.types.Position;
+import protocolsupport.protocol.utils.types.TileEntity;
 import protocolsupport.utils.Utils;
 
 public abstract class ChunkTransformer {
 
-	public static enum BlockFormat {
-		VARIES, //format for 1.9+
-		SHORT, //format for 1.8
-		BYTE, //format for 1.7-
-		PE,
-	}
-
-	public static ChunkTransformer create(BlockFormat format) {
-		switch (format) {
-			case VARIES: {
-				return new ChunkTransformerVaries();
-			}
-			case SHORT: {
-				return new ChunkTransformerShort();
-			}
-			case BYTE: {
-				return new ChunkTransformerByte();
-			}
-			case PE: {
-				return new ChunkTransformerPE();
-			}
-			default: {
-				throw new IllegalArgumentException();
-			}
-		}
-	}
-
+	protected ChunkCoord chunk;
 	protected int columnsCount;
 	protected boolean hasSkyLight;
 	protected boolean hasBiomeData;
 	protected final ChunkSection[] sections = new ChunkSection[16];
-	protected final byte[] biomeData = new byte[256];
+	protected final int[] biomeData = new int[256];
+	protected List<TileEntity> tilesNBTData;
+	protected Int2IntMap tilesBlockData;
 
-	public void loadData(byte[] data, int bitmap, boolean hasSkyLight, boolean hasBiomeData) {
+	protected final ArrayBasedIdRemappingTable blockTypeRemappingTable;
+	protected final TileDataCache tilecache;
+	protected final TileNBTRemapper tileremapper;
+	public ChunkTransformer(ArrayBasedIdRemappingTable blockRemappingTable, TileNBTRemapper tileremapper, TileDataCache tilecache) {
+		this.blockTypeRemappingTable = blockRemappingTable;
+		this.tileremapper = tileremapper;
+		this.tilecache = tilecache;
+	}
+
+	public void loadData(ChunkCoord chunk, ByteBuf chunkdata, int bitmap, boolean hasSkyLight, boolean hasBiomeData, TileEntity[] tiles) {
+		this.chunk = chunk;
 		this.columnsCount = Integer.bitCount(bitmap);
 		this.hasSkyLight = hasSkyLight;
 		this.hasBiomeData = hasBiomeData;
-		ByteBuf chunkdata = Unpooled.wrappedBuffer(data);
 		for (int i = 0; i < sections.length; i++) {
 			if ((bitmap & (1 << i)) != 0) {
 				sections[i] = new ChunkSection(chunkdata, hasSkyLight);
@@ -54,20 +50,58 @@ public abstract class ChunkTransformer {
 			}
 		}
 		if (hasBiomeData) {
-			chunkdata.readBytes(biomeData);
+			for (int i = 0; i < biomeData.length; i++) {
+				biomeData[i] = chunkdata.readInt();
+			}
 		}
+		this.tilesNBTData = new ArrayList<>(Arrays.asList(tiles));
+		this.tilesBlockData = tilecache.getOrCreateChunk(chunk);
 	}
 
-	public abstract byte[] toLegacyData(ProtocolVersion version);
+	public TileEntity[] remapAndGetTiles() {
+		return
+			tilesNBTData.stream()
+			.map(tile -> tileremapper.remap(tile, tilesBlockData.get(tile.getPosition().getLocalCoord())))
+			.toArray(TileEntity[]::new);
+	}
+
+	protected int getBlockState(int section, BlockStorageReader blockstorage, int blockindex) {
+		int blockstate = blockstorage.getBlockState(blockindex);
+		if (tileremapper.tileThatNeedsBlockData(blockstate)) {
+			tilesBlockData.put(getLocalPositionFromSectionIndex(section, blockindex), blockstate);
+		} else {
+			tilesBlockData.remove(getLocalPositionFromSectionIndex(section, blockindex));
+		}
+		if (tileremapper.usedToBeTile(blockstate)) {
+			TileEntity tile = tileremapper.getLegacyTileFromBlock(getGlobalPositionFromSectionIndex(section, blockindex), blockstate);
+			if (tile != null) {
+				tilesNBTData.add(tile);
+			}
+		}
+		return blockstate;
+	}
+
+	protected int getLocalPositionFromSectionIndex(int section, int blockindex) {
+		return ((blockindex & 0xF) << 12) | (((blockindex >> 4) & 0xF) << 8) | ((section * 16) + ((blockindex >> 8) & 0xF));
+	}
+
+	protected Position getGlobalPositionFromSectionIndex(int section, int blockindex) {
+		return new Position(
+			(chunk.getX() << 4) + (blockindex & 0xF),
+			(section * 16) + ((blockindex >> 8) & 0xF),
+			(chunk.getZ() << 4) + ((blockindex >> 4) & 0xF)
+		);
+	}
 
 	protected static final int blocksInSection = 16 * 16 * 16;
 
 	protected static class ChunkSection {
 
-		private static final int[] globalpalette = new int[Short.MAX_VALUE * 2];
+		protected static final int globalPaletteBitsPerBlock = 14;
+		protected static final int[] globalPaletteData = new int[MinecraftData.BLOCKDATA_COUNT];
 		static {
-			for (int i = 0; i < globalpalette.length; i++) {
-				globalpalette[i] = i;
+			for (int i = 0; i < globalPaletteData.length; i++) {
+				globalPaletteData[i] = i;
 			}
 		}
 
@@ -77,13 +111,9 @@ public abstract class ChunkTransformer {
 
 		public ChunkSection(ByteBuf datastream, boolean hasSkyLight) {
 			byte bitsPerBlock = datastream.readByte();
-			int[] palette = globalpalette;
-			int palettelength = VarNumberSerializer.readVarInt(datastream);
-			if (palettelength != 0) {
-				palette = new int[palettelength];
-				for (int i = 0; i < palette.length; i++) {
-					palette[i] = VarNumberSerializer.readVarInt(datastream);
-				}
+			int[] palette = globalPaletteData;
+			if (bitsPerBlock != globalPaletteBitsPerBlock) {
+				palette = ArraySerializer.readVarIntVarIntArray(datastream);
 			}
 			this.blockdata = new BlockStorageReader(palette, bitsPerBlock, VarNumberSerializer.readVarInt(datastream));
 			this.blockdata.readFromStream(datastream);

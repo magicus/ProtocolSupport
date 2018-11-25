@@ -7,10 +7,12 @@ import java.util.List;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.EncoderException;
 import protocolsupport.ProtocolSupport;
 import protocolsupport.api.Connection;
 import protocolsupport.api.utils.NetworkState;
+import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.ClientBoundMiddlePacket;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityHeadRotation;
@@ -18,9 +20,7 @@ import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityTe
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityVelocity;
 import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
-import protocolsupport.protocol.storage.netcache.NetworkDataCache;
-import protocolsupport.protocol.utils.registry.MiddleTransformerRegistry;
-import protocolsupport.utils.netty.Allocator;
+import protocolsupport.protocol.utils.registry.MiddlePacketRegistry;
 import protocolsupport.utils.netty.MessageToMessageEncoder;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.zplatform.ServerPlatform;
@@ -28,15 +28,11 @@ import protocolsupport.zplatform.ServerPlatform;
 public abstract class AbstractPacketEncoder extends MessageToMessageEncoder<ByteBuf> {
 
 	protected final Connection connection;
-	public AbstractPacketEncoder(Connection connection, NetworkDataCache storage) {
+	protected final MiddlePacketRegistry<ClientBoundMiddlePacket> registry;
+	public AbstractPacketEncoder(ConnectionImpl connection) {
 		this.connection = connection;
-		registry.setCallBack(object -> {
-			object.setConnection(this.connection);
-			object.setSharedStorage(storage);
-		});
+		this.registry = new MiddlePacketRegistry<>(connection);
 	}
-
-	protected final MiddleTransformerRegistry<ClientBoundMiddlePacket> registry = new MiddleTransformerRegistry<>();
 
 	@Override
 	public void encode(ChannelHandlerContext ctx, ByteBuf input, List<Object> output) throws Exception {
@@ -56,10 +52,13 @@ public abstract class AbstractPacketEncoder extends MessageToMessageEncoder<Byte
 				}
 			}
 			packetTransformer.readFromServerData(input);
+			if (input.isReadable()) {
+				throw new DecoderException("Did not read all data from packet, bytes left: " + input.readableBytes());
+			}
 			if (packetTransformer.postFromServerRead()) {
 				try (RecyclableCollection<ClientBoundPacketData> data = processPackets(ctx.channel(), packetTransformer.toData())) {
 					for (ClientBoundPacketData packetdata : data) {
-						ByteBuf senddata = Allocator.allocateBuffer();
+						ByteBuf senddata = ctx.alloc().heapBuffer(packetdata.readableBytes() + VarNumberSerializer.MAX_LENGTH);
 						writePacketId(senddata, getNewPacketId(currentProtocol, packetdata.getPacketId()));
 						senddata.writeBytes(packetdata);
 						output.add(senddata);

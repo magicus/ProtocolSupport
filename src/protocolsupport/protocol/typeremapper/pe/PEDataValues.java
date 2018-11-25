@@ -1,13 +1,13 @@
 package protocolsupport.protocol.typeremapper.pe;
 
 import java.io.BufferedReader;
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.google.gson.JsonArray;
 import com.google.gson.annotations.SerializedName;
+
+import org.bukkit.block.Biome;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.util.Vector;
 
@@ -17,21 +17,23 @@ import com.google.gson.JsonParser;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import protocolsupport.api.ProtocolVersion;
+import protocolsupport.protocol.typeremapper.legacy.LegacyEnchantmentId;
 import protocolsupport.protocol.typeremapper.utils.RemappingRegistry.IdRemappingRegistry;
-import protocolsupport.protocol.typeremapper.utils.RemappingTable;
 import protocolsupport.protocol.typeremapper.utils.RemappingTable.ArrayBasedIdRemappingTable;
 import protocolsupport.protocol.typeremapper.utils.RemappingTable.HashMapBasedIdRemappingTable;
-import protocolsupport.protocol.utils.minecraftdata.MinecraftData;
+import protocolsupport.protocol.utils.networkentity.NetworkEntityType;
 import protocolsupport.protocol.utils.types.WindowType;
-import protocolsupport.protocol.utils.types.networkentity.NetworkEntityType;
+import protocolsupport.protocol.utils.types.nbt.NBTCompound;
 import protocolsupport.utils.Utils;
-import protocolsupport.zplatform.ServerPlatform;
-import protocolsupport.zplatform.itemstack.NBTTagCompoundWrapper;
 
 public class PEDataValues {
 
+	public static String getResourcePath(String name) {
+		return "pe/" + name;
+	}
+
 	public static BufferedReader getResource(String name) {
-		return Utils.getResource("pe/" + name);
+		return Utils.getResourceBuffered(getResourcePath(name));
 	}
 
 	private static JsonObject getFileObject(String name) {
@@ -68,7 +70,6 @@ public class PEDataValues {
 		registerLivingType(NetworkEntityType.ZOMBIE_PIGMAN, 36);
 		registerLivingType(NetworkEntityType.GHAST, 41);
 		registerLivingType(NetworkEntityType.SLIME, 37);
-		registerLivingType(NetworkEntityType.GIANT, 32); //Massive zombies. No remap though because we want the metadata.
 		registerLivingType(NetworkEntityType.ZOMBIE, 32);
 		registerLivingType(NetworkEntityType.SPIDER, 35);
 		registerLivingType(NetworkEntityType.SKELETON, 34);
@@ -94,6 +95,14 @@ public class PEDataValues {
 		registerLivingType(NetworkEntityType.VINDICATOR, 57);
 		registerLivingType(NetworkEntityType.EVOKER, 104);
 		registerLivingType(NetworkEntityType.VEX, 105);
+		registerLivingType(NetworkEntityType.DOLPHIN, 31);
+		registerLivingType(NetworkEntityType.PUFFERFISH, 108);
+		registerLivingType(NetworkEntityType.SALMON, 109);
+		registerLivingType(NetworkEntityType.TROPICAL_FISH, 111);
+		registerLivingType(NetworkEntityType.COD, 112);
+		registerLivingType(NetworkEntityType.DROWNED, 110);
+		registerLivingType(NetworkEntityType.TURTLE, 74);
+		registerLivingType(NetworkEntityType.PHANTOM, 58);
 
 		entityType.put(NetworkEntityType.ARMOR_STAND_OBJECT, 61);
 		entityType.put(NetworkEntityType.TNT, 65);
@@ -104,6 +113,7 @@ public class PEDataValues {
 		entityType.put(NetworkEntityType.ENDEREYE, 70);
 		entityType.put(NetworkEntityType.ENDER_CRYSTAL, 71);
 		entityType.put(NetworkEntityType.FIREWORK, 72);
+		entityType.put(NetworkEntityType.THROWN_TRIDENT, 73);
 		entityType.put(NetworkEntityType.SHULKER_BULLET, 76);
 		entityType.put(NetworkEntityType.FISHING_FLOAT, 77);
 		entityType.put(NetworkEntityType.DRAGON_FIREBALL, 79);
@@ -124,8 +134,6 @@ public class PEDataValues {
 		entityType.put(NetworkEntityType.MINECART_TNT, 97);
 		entityType.put(NetworkEntityType.MINECART_CHEST, 98);
 		entityType.put(NetworkEntityType.MINECART_COMMAND, 100);
-		entityType.put(NetworkEntityType.MINECART_FURNACE, 84); //Hack, we remap a furnace using entitymetadata.
-		entityType.put(NetworkEntityType.MINECART_MOB_SPAWNER, 84); //Hack, we remap a mobspawner using entitymetadata.
 		//TODO: Lingering Potion? -> 101
 		entityType.put(NetworkEntityType.LAMA_SPIT, 102);
 		entityType.put(NetworkEntityType.EVOCATOR_FANGS, 103);
@@ -139,187 +147,11 @@ public class PEDataValues {
 		return livingTypeFromNetwork.get(networkId);
 	}
 
-	public static final ArrayBasedIdRemappingTable BLOCK_ID = new ArrayBasedIdRemappingTable(MinecraftData.BLOCK_ID_MAX * MinecraftData.BLOCK_DATA_MAX);
-
-	private static HashMap<Integer, ArrayList<Integer>> blockIdRemaps = new HashMap<>();
-	private static HashMap<Integer, ArrayList<Integer>> blockStateRemaps = new HashMap<>();
-
-	private static void registerBlockIdRemap(int pcId, int peId) {
-		ArrayList<Integer> remappedIds = blockIdRemaps.get(peId);
-		if (remappedIds == null) {
-			remappedIds = new ArrayList<>();
-			blockIdRemaps.put(peId, remappedIds);
-		}
-		remappedIds.add(pcId);
-	}
-
-	private static void registerBlockStateRemap(int pcId, int pcData, int peId, int peData) {
-		int peBlockState = (peId << 4) | peData;
-
-		ArrayList<Integer> remappedBlockStates = blockStateRemaps.get(peBlockState);
-		if (remappedBlockStates == null) {
-			remappedBlockStates = new ArrayList<>();
-			blockStateRemaps.put(peBlockState, remappedBlockStates);
-		}
-
-		int pcBlockState = (pcId << 4) | pcData;
-		remappedBlockStates.add(pcBlockState);
-	}
-
-	static {
-
-		// ===[ BLOCKS ]===
-		// Concrete Powder
-		registerBlockIdRemap(252, 237);
-		// Chain Command Block
-		registerBlockIdRemap(211, 189);
-		// Repeating Command Block
-		registerBlockIdRemap(210, 188);
-		// Double Wooden Slab
-		registerBlockIdRemap(125, 157);
-		registerBlockIdRemap(126, 158);
-		registerBlockIdRemap(95, 241); // STAINED_GLASS
-		registerBlockIdRemap(157, 126); // ACTIVATOR_RAIL
-		registerBlockIdRemap(158, 125); // DROPPER
-		registerBlockIdRemap(198, 208); // END_ROD
-		registerBlockIdRemap(199, 240); // CHORUS_PLANT
-		registerBlockIdRemap(207, 244); // BEETROOT_BLOCK
-		registerBlockIdRemap(208, 198); // GRASS_PATH
-		registerBlockIdRemap(212, 207); // FROSTED_ICE
-		registerBlockIdRemap(218, 251); // OBSERVER
-		registerBlockIdRemap(235, 220); // WHITE_GLAZED_TERRACOTTA
-		registerBlockIdRemap(236, 221); // ORANGE_GLAZED_TERRACOTTA
-		registerBlockIdRemap(237, 222); // MAGENTA_GLAZED_TERRACOTTA
-		registerBlockIdRemap(238, 223); // LIGHT_BLUE_GLAZED_TERRACOTTA
-		registerBlockIdRemap(239, 224); // YELLOW_GLAZED_TERRACOTTA
-		registerBlockIdRemap(240, 225); // LIME_GLAZED_TERRACOTTA
-		registerBlockIdRemap(241, 226); // PINK_GLAZED_TERRACOTTA
-		registerBlockIdRemap(242, 227); // GRAY_GLAZED_TERRACOTTA
-		registerBlockIdRemap(243, 228); // SILVER_GLAZED_TERRACOTTA
-		registerBlockIdRemap(244, 229); // CYAN_GLAZED_TERRACOTTA
-		registerBlockIdRemap(245, 219); // PURPLE_GLAZED_TERRACOTTA
-		registerBlockIdRemap(246, 231); // BLUE_GLAZED_TERRACOTTA
-		registerBlockIdRemap(247, 232); // BROWN_GLAZED_TERRACOTTA
-		registerBlockIdRemap(248, 233); // GREEN_GLAZED_TERRACOTTA
-		registerBlockIdRemap(249, 234); // RED_GLAZED_TERRACOTTA
-		registerBlockIdRemap(250, 235); // BLACK_GLAZED_TERRACOTTA
-		registerBlockIdRemap(251, 236); // CONCRETE
-		registerBlockIdRemap(255, 252); // STRUCTURE_BLOCK
-		registerBlockIdRemap(166, 95);  // BARRIER
-		registerBlockIdRemap(154, 410);  // HOPPER
-		registerBlockIdRemap(36, 250);  // Block Being Moved By Piston
-		registerBlockIdRemap(205, 203);  // Purpur slab
-		registerBlockIdRemap(204, 201);  // Purpur double slab TODO: replace to real double slab
-		registerBlockStateRemap(202, 0, 201, 2);  // Purpur pillar
-		// Nether slab -> Quartz slab
-		registerBlockStateRemap(44, 7, 44, 6);
-		registerBlockStateRemap(44, 14, 44, 15);
-		registerBlockStateRemap(43, 7, 43, 6);
-		// And vice-versa
-		registerBlockStateRemap(44, 6, 44, 7);
-		registerBlockStateRemap(44, 15, 44, 14);
-		registerBlockStateRemap(43, 6, 43, 7);
-		// Prismarine data ID mismatch
-		registerBlockStateRemap(168, 1, 168, 2);
-		registerBlockStateRemap(168, 2, 168, 1);
-		// Podzol
-		registerBlockStateRemap(3, 2, 243, 0);
-		// Colored Fences
-		registerBlockStateRemap(188, 0, 85, 1);
-		registerBlockStateRemap(189, 0, 85, 2);
-		registerBlockStateRemap(190, 0, 85, 3);
-		registerBlockStateRemap(192, 0, 85, 4);
-		registerBlockStateRemap(191, 0, 85, 5);
-		// Shulker Boxes
-		registerBlockStateRemap(219, 0, 218, 0); // WHITE_SHULKER_BOX
-		registerBlockStateRemap(220, 0, 218, 1); // ORANGE_SHULKER_BOX
-		registerBlockStateRemap(221, 0, 218, 2); // MAGENTA_SHULKER_BOX
-		registerBlockStateRemap(222, 0, 218, 3); // LIGHT_BLUE_SHULKER_BOX
-		registerBlockStateRemap(223, 0, 218, 4); // YELLOW_SHULKER_BOX
-		registerBlockStateRemap(224, 0, 218, 5); // LIME_SHULKER_BOX
-		registerBlockStateRemap(225, 0, 218, 6); // PINK_SHULKER_BOX
-		registerBlockStateRemap(226, 0, 218, 7); // GRAY_SHULKER_BOX
-		registerBlockStateRemap(227, 0, 218, 8); // SILVER_SHULKER_BOX
-		registerBlockStateRemap(228, 0, 218, 9); // CYAN_SHULKER_BOX
-		registerBlockStateRemap(229, 0, 218, 10); // PURPLE_SHULKER_BOX
-		registerBlockStateRemap(230, 0, 218, 11); // BLUE_SHULKER_BOX
-		registerBlockStateRemap(231, 0, 218, 12); // BROWN_SHULKER_BOX
-		registerBlockStateRemap(232, 0, 218, 13); // GREEN_SHULKER_BOX
-		registerBlockStateRemap(233, 0, 218, 14); // RED_SHULKER_BOX
-		registerBlockStateRemap(234, 0, 218, 15); // BLACK_SHULKER_BOX
-		// Trap Doors...
-		// Wooden
-		registerBlockStateRemap(96, 0, 96, 3);
-		registerBlockStateRemap(96, 1, 96, 2);
-		registerBlockStateRemap(96, 2, 96, 1);
-		registerBlockStateRemap(96, 3, 96, 0);
-		registerBlockStateRemap(96, 4, 96, 11);
-		registerBlockStateRemap(96, 5, 96, 10);
-		registerBlockStateRemap(96, 6, 96, 9);
-		registerBlockStateRemap(96, 7, 96, 8);
-		registerBlockStateRemap(96, 8, 96, 7);
-		registerBlockStateRemap(96, 9, 96, 6);
-		registerBlockStateRemap(96, 10, 96, 5);
-		registerBlockStateRemap(96, 11, 96, 4);
-		registerBlockStateRemap(96, 12, 96, 15);
-		registerBlockStateRemap(96, 13, 96, 14);
-		registerBlockStateRemap(96, 14, 96, 13);
-		registerBlockStateRemap(96, 15, 96, 12);
-		// Iron
-		registerBlockStateRemap(167, 0, 167, 3);
-		registerBlockStateRemap(167, 1, 167, 2);
-		registerBlockStateRemap(167, 2, 167, 1);
-		registerBlockStateRemap(167, 3, 167, 0);
-		registerBlockStateRemap(167, 4, 167, 11);
-		registerBlockStateRemap(167, 5, 167, 10);
-		registerBlockStateRemap(167, 6, 167, 9);
-		registerBlockStateRemap(167, 7, 167, 8);
-		registerBlockStateRemap(167, 8, 167, 7);
-		registerBlockStateRemap(167, 9, 167, 6);
-		registerBlockStateRemap(167, 10, 167, 5);
-		registerBlockStateRemap(167, 11, 167, 4);
-		registerBlockStateRemap(167, 12, 167, 15);
-		registerBlockStateRemap(167, 13, 167, 14);
-		registerBlockStateRemap(167, 14, 167, 13);
-		registerBlockStateRemap(167, 15, 167, 12);
-		// Jukebox
-		registerBlockStateRemap(84, 1, 84, 0);
-		registerBlockStateRemap(84, 0, 84, 0);
-
-		JsonArray blocksJson = new JsonParser().parse(getResource("blocks.json")).getAsJsonArray();
-		blocksJson.forEach(entry -> {
-			// For most blocks, map PC blockState to PE runtime ID. For some blocks,
-			// the PE id/blockState is different from the PC id/blockState. These
-			// are encoded in our remaps.
-			int runtimeID = entry.getAsJsonObject().get("runtimeID").getAsInt();
-			int id = entry.getAsJsonObject().get("id").getAsInt(); // PE id
-			int data = entry.getAsJsonObject().get("data").getAsInt(); // PE data
-
-			int blockState = (id << 4) | data;
-			ArrayList<Integer> remappedIds = blockIdRemaps.get(id);
-			ArrayList<Integer> remappedBlockStates = blockStateRemaps.get(blockState);
-
-			if (remappedIds != null) {
-				remappedIds.forEach(remappedId -> {
-					int remappedBlockState = (remappedId << 4) | data;
-					BLOCK_ID.setRemap(remappedBlockState, runtimeID);
-				});
-			} else if (remappedBlockStates != null) {
-				remappedBlockStates.forEach(remappedBlockState -> {
-					BLOCK_ID.setRemap(remappedBlockState, runtimeID);
-				});
-			} else {
-				BLOCK_ID.setRemap(blockState, runtimeID);
-			}
-		});
-	}
-
 	private static final Int2IntOpenHashMap pcEnchantToPe = new Int2IntOpenHashMap();
 	private static final Int2IntOpenHashMap peEnchantToPc = new Int2IntOpenHashMap();
-	@SuppressWarnings("deprecation")
 	private static void registerEnchantRemap(Enchantment enchantment, int peId) {
-		pcEnchantToPe.put(enchantment.getId(), peId);
-		peEnchantToPc.put(peId, enchantment.getId());
+		pcEnchantToPe.put(LegacyEnchantmentId.getId(enchantment), peId);
+		peEnchantToPc.put(peId, LegacyEnchantmentId.getId(enchantment));
 	}
 	static {
 		registerEnchantRemap(Enchantment.OXYGEN, 6);
@@ -351,152 +183,6 @@ public class PEDataValues {
 	}
 	public static int peToPcEnchant(int peId) {
 		return peEnchantToPc.get(peId);
-	}
-
-	public static final RemappingTable.ComplexIdRemappingTable ITEM_ID = new RemappingTable.ComplexIdRemappingTable();
-	public static final RemappingTable.ComplexIdRemappingTable PE_ITEM_ID = new RemappingTable.ComplexIdRemappingTable();
-	private static void registerItemRemap(int from, int to) {
-		ITEM_ID.setSingleRemap(from, to, -1);
-		PE_ITEM_ID.setSingleRemap(to, from, -1);
-	}
-	private static void registerItemRemap(int from, int to, int dataTo) {
-		ITEM_ID.setSingleRemap(from, to, dataTo);
-		PE_ITEM_ID.setSingleRemap(to, from, dataTo);
-	}
-	private static void registerItemRemap(int from, int dataFrom, int to, int dataTo) {
-		ITEM_ID.setComplexRemap(from, dataFrom, to, dataTo);
-		PE_ITEM_ID.setComplexRemap(to, dataTo, from, dataFrom);
-	}
-
-	static {
-		// ===[ BLOCKS ]===
-		// Concrete Powder
-		registerItemRemap(252, 237);
-		// Chain Command Block
-		registerItemRemap(211, 189);
-		// Repeating Command Block
-		registerItemRemap(210, 188);
-		// Grass Path
-		registerItemRemap(208, 198);
-		// Double Wooden Slab
-		registerItemRemap(125, 157);
-		registerItemRemap(126, 158);
-		registerItemRemap(95, 241); // STAINED_GLASS
-		registerItemRemap(157, 126); // ACTIVATOR_RAIL
-		registerItemRemap(158, 125); // DROPPER
-		registerItemRemap(198, 208); // END_ROD
-		registerItemRemap(199, 240); // CHORUS_PLANT
-		registerItemRemap(207, 244); // BEETROOT_BLOCK
-		registerItemRemap(208, 198); // GRASS_PATH
-		registerItemRemap(212, 207); // FROSTED_ICE
-		registerItemRemap(218, 251); // OBSERVER
-		registerItemRemap(235, 220); // WHITE_GLAZED_TERRACOTTA
-		registerItemRemap(236, 221); // ORANGE_GLAZED_TERRACOTTA
-		registerItemRemap(237, 222); // MAGENTA_GLAZED_TERRACOTTA
-		registerItemRemap(238, 223); // LIGHT_BLUE_GLAZED_TERRACOTTA
-		registerItemRemap(239, 224); // YELLOW_GLAZED_TERRACOTTA
-		registerItemRemap(240, 225); // LIME_GLAZED_TERRACOTTA
-		registerItemRemap(241, 226); // PINK_GLAZED_TERRACOTTA
-		registerItemRemap(242, 227); // GRAY_GLAZED_TERRACOTTA
-		registerItemRemap(243, 228); // SILVER_GLAZED_TERRACOTTA
-		registerItemRemap(244, 229); // CYAN_GLAZED_TERRACOTTA
-		registerItemRemap(245, 219); // PURPLE_GLAZED_TERRACOTTA
-		registerItemRemap(246, 231); // BLUE_GLAZED_TERRACOTTA
-		registerItemRemap(247, 232); // BROWN_GLAZED_TERRACOTTA
-		registerItemRemap(248, 233); // GREEN_GLAZED_TERRACOTTA
-		registerItemRemap(249, 234); // RED_GLAZED_TERRACOTTA
-		registerItemRemap(250, 235); // BLACK_GLAZED_TERRACOTTA
-		registerItemRemap(251, 236); // CONCRETE
-		registerItemRemap(255, 252); // STRUCTURE_BLOCK
-		registerItemRemap(166, 95);  // BARRIER
-		registerItemRemap(154, 410);  // HOPPER
-		registerItemRemap(36, 250);  // Block Being Moved By Piston
-		registerItemRemap(205, 203);  // Purpur slab
-		registerItemRemap(204, 201);  // Purpur double slab TODO: replace to real double slab
-		registerItemRemap(202, 201, 2);  // Purpur pillar
-		// Nether slab -> Quartz slab
-		registerItemRemap(44, 7, 44, 6);
-		registerItemRemap(44, 14, 44, 15);
-		registerItemRemap(43, 7, 43, 6);
-		// And vice-versa
-		registerItemRemap(44, 6, 44, 7);
-		registerItemRemap(44, 15, 44, 14);
-		registerItemRemap(43, 6, 43, 7);
-		// Prismarine data ID mismatch
-		registerItemRemap(168, 1, 168, 2);
-		registerItemRemap(168, 2, 168, 1);
-		// Podzol
-		registerItemRemap(3, 2, 243, 0);
-		// Colored Fences
-		registerItemRemap(188, 0, 85, 1);
-		registerItemRemap(189, 0, 85, 2);
-		registerItemRemap(190, 0, 85, 3);
-		registerItemRemap(192, 0, 85, 4);
-		registerItemRemap(191, 0, 85, 5);
-		// Shulker Boxes
-		registerItemRemap(219, 218, 0); // WHITE_SHULKER_BOX
-		registerItemRemap(220, 218, 1); // ORANGE_SHULKER_BOX
-		registerItemRemap(221, 218, 2); // MAGENTA_SHULKER_BOX
-		registerItemRemap(222, 218, 3); // LIGHT_BLUE_SHULKER_BOX
-		registerItemRemap(223, 218, 4); // YELLOW_SHULKER_BOX
-		registerItemRemap(224, 218, 5); // LIME_SHULKER_BOX
-		registerItemRemap(225, 218, 6); // PINK_SHULKER_BOX
-		registerItemRemap(226, 218, 7); // GRAY_SHULKER_BOX
-		registerItemRemap(227, 218, 8); // SILVER_SHULKER_BOX
-		registerItemRemap(228, 218, 9); // CYAN_SHULKER_BOX
-		registerItemRemap(229, 218, 10); // PURPLE_SHULKER_BOX
-		registerItemRemap(230, 218, 11); // BLUE_SHULKER_BOX
-		registerItemRemap(231, 218, 12); // BROWN_SHULKER_BOX
-		registerItemRemap(232, 218, 13); // GREEN_SHULKER_BOX
-		registerItemRemap(233, 218, 14); // RED_SHULKER_BOX
-		registerItemRemap(234, 218, 15); // BLACK_SHULKER_BOX
-
-		// ===[ ITEMS ]===
-		registerItemRemap(410, 422); // PRISMARINE_CRYSTALS
-		registerItemRemap(416, 425); // ARMOR_STAND
-		registerItemRemap(425, 446); // BANNER
-		registerItemRemap(434, 457); // BEETROOT
-		registerItemRemap(435, 458); // BEETROOT_SEEDS
-		registerItemRemap(436, 459); // BEETROOT_SOUP
-		registerItemRemap(443, 444); // ELYTRA
-		registerItemRemap(449, 450); // TOTEM
-		registerItemRemap(450, 445); // SHULKER_SHELL
-		registerItemRemap(322, 1, 466, 0); // Enchanted Golden Apple
-		registerItemRemap(333, 0, 333, 0); // Oak Boat
-		registerItemRemap(444, 0, 333, 1); // Spruce Boat
-		registerItemRemap(445, 0, 333, 2); // Birch Boat
-		registerItemRemap(446, 0, 333, 3); // Jungle Boat
-		registerItemRemap(447, 0, 333, 4); // Acacia Boat
-		registerItemRemap(448, 0, 333, 5); // Dark Oak Boat
-		registerItemRemap(422, 443); // Minecart with a Command Block
-		registerItemRemap(325, 0, 325, 0); // Bucket
-		registerItemRemap(335, 0, 325, 1); // Milk Bucket
-		registerItemRemap(326, 0, 325, 8); // Water Bucket
-		registerItemRemap(327, 0, 325, 10); // Lava Bucket
-		// Records
-		registerItemRemap(2256, 500);
-		registerItemRemap(2257, 501);
-		registerItemRemap(2258, 502);
-		registerItemRemap(2259, 503);
-		registerItemRemap(2260, 504);
-		registerItemRemap(2261, 505);
-		registerItemRemap(2262, 506);
-		registerItemRemap(2263, 507);
-		registerItemRemap(2264, 508);
-		registerItemRemap(2265, 509);
-		registerItemRemap(2266, 510);
-		registerItemRemap(2267, 511);
-
-		// Not implemented (yet) in PE
-		registerItemRemap(453, 340); // KNOWLEDGE BOOK -> BOOK
-		registerItemRemap(442, 268); // SHIELD -> WOODEN SWORD
-		registerItemRemap(439, 262); // SPECTRAL ARROW -> ARROW
-		registerItemRemap(343, 408); // POWERED MINECART -> MINECART WITH A HOPPER
-
-		// Only in PE; remap from PE to PC values (but not vice versa)
-
-		// STONECUTTER, remap to CRAFTING_TABLE
-		PE_ITEM_ID.setSingleRemap(245, 58, -1);
 	}
 
 	public static final IdRemappingRegistry<HashMapBasedIdRemappingTable> PARTICLE = new IdRemappingRegistry<HashMapBasedIdRemappingTable>() {
@@ -541,6 +227,36 @@ public class PEDataValues {
 		@Override
 		protected HashMapBasedIdRemappingTable createTable() {
 			return new HashMapBasedIdRemappingTable();
+		}
+	};
+
+	public static final IdRemappingRegistry<ArrayBasedIdRemappingTable> BIOME = new IdRemappingRegistry<ArrayBasedIdRemappingTable>() {
+		{
+			registerRemapEntry(Biome.SMALL_END_ISLANDS, Biome.THE_END, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.END_MIDLANDS, Biome.THE_END, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.END_HIGHLANDS, Biome.THE_END, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.END_BARRENS, Biome.THE_END, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.THE_VOID, Biome.THE_END, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.WARM_OCEAN, 40, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.LUKEWARM_OCEAN, 42, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.COLD_OCEAN, 44, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.DEEP_WARM_OCEAN, 41, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.DEEP_LUKEWARM_OCEAN, 43, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.DEEP_COLD_OCEAN, 45, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.FROZEN_OCEAN, 46, ProtocolVersion.MINECRAFT_PE);
+			registerRemapEntry(Biome.DEEP_FROZEN_OCEAN, 47, ProtocolVersion.MINECRAFT_PE);
+		}
+		@Override
+		protected ArrayBasedIdRemappingTable createTable() {
+			return new ArrayBasedIdRemappingTable(167); //Largest biome id.
+		}
+
+		private void registerRemapEntry(Biome type, int to, ProtocolVersion version) {
+			registerRemapEntry(type.ordinal(), to, version);
+		}
+
+		private void registerRemapEntry(Biome type, Biome to, ProtocolVersion version) {
+			registerRemapEntry(type.ordinal(), to.ordinal(), version);
 		}
 	};
 
@@ -791,13 +507,15 @@ public class PEDataValues {
 
 		public static class PocketInventoryFilter {
 			private String Filter;
-			private transient NBTTagCompoundWrapper filterNBT;
+			private transient NBTCompound filterNBT = null;
 
 			protected void init() {
-				filterNBT = ServerPlatform.get().getWrapperFactory().createNBTCompoundFromJson(Filter.replaceAll("\'", "\""));
+				System.out.println("Skipping inventory filter because NBT code still needs to be formatted: " + Filter);
+				//TODO GET THIS???
+				//filterNBT = new createNBTCompoundFromJson(Filter.replaceAll("\'", "\""));
 			}
 
-			public NBTTagCompoundWrapper getFilter() {
+			public NBTCompound getFilter() {
 				return filterNBT;
 			}
 		}
