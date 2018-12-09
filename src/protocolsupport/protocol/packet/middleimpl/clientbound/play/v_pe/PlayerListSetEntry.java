@@ -26,7 +26,6 @@ import protocolsupport.listeners.InternalPluginMessageRequest;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.clientbound.play.MiddlePlayerListSetEntry;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
-import protocolsupport.protocol.pipeline.version.v_pe.PEPacketEncoder;
 import protocolsupport.protocol.serializer.ArraySerializer;
 import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
@@ -96,8 +95,8 @@ public class PlayerListSetEntry extends MiddlePlayerListSetEntry {
 	protected static Any<Boolean, String> getSkinInfo(List<ProfileProperty> properties) {
 		Optional<ProfileProperty> property =
 			properties.stream()
-			.filter(p -> p.getName().equals("textures"))
-			.findAny();
+				.filter(p -> p.getName().equals("textures"))
+				.findAny();
 		if (property.isPresent()) {
 			JsonElement propertyjson = new JsonParser().parse(new InputStreamReader(new ByteArrayInputStream(Base64.getDecoder().decode(property.get().getValue())), StandardCharsets.UTF_8));
 			JsonObject texturesobject = JsonUtils.getJsonObject(JsonUtils.getAsJsonObject(propertyjson, "root element"), "textures");
@@ -117,11 +116,13 @@ public class PlayerListSetEntry extends MiddlePlayerListSetEntry {
 		private final ConnectionImpl connection;
 		private final UUID uuid;
 		private final Boolean isNormalModel;
+
 		public SkinUpdate(ConnectionImpl connection, UUID uuid, Boolean isNormalModel) {
 			this.connection = connection;
 			this.uuid = uuid;
 			this.isNormalModel = isNormalModel;
 		}
+
 		@Override
 		public void accept(byte[] skindata) {
 			ByteBuf serializer = Unpooled.buffer();
