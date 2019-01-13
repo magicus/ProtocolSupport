@@ -7,11 +7,10 @@ import protocolsupport.listeners.InternalPluginMessageRequest;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.clientbound.play.MiddleStartGame;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
-import protocolsupport.protocol.packet.middleimpl.clientbound.login.v_pe.LoginSuccess;
 import protocolsupport.protocol.serializer.PositionSerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
-import protocolsupport.protocol.storage.netcache.AttributesCache;
+import protocolsupport.protocol.storage.netcache.MovementCache;
 import protocolsupport.protocol.typeremapper.pe.PEAdventureSettings;
 import protocolsupport.protocol.typeremapper.pe.PEBlocks;
 import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
@@ -21,6 +20,7 @@ import protocolsupport.protocol.utils.types.GameMode;
 import protocolsupport.protocol.utils.types.Position;
 import protocolsupport.utils.recyclable.RecyclableArrayList;
 import protocolsupport.utils.recyclable.RecyclableCollection;
+import protocolsupport.utils.recyclable.RecyclableSingletonList;
 import protocolsupport.zplatform.impl.pe.PECreativeInventory;
 
 public class StartGame extends MiddleStartGame {
@@ -32,6 +32,13 @@ public class StartGame extends MiddleStartGame {
 	@Override
 	public RecyclableCollection<ClientBoundPacketData> toData() {
 		ProtocolVersion version = connection.getVersion();
+		MovementCache mcache = cache.getMovementCache();
+		if (!mcache.isFirstLocationSent()) {
+			//delay sending this until we have some rough idea about the spawn location,
+			//this spawn location is important for telling the client which chunks need lighting
+			mcache.setHeldSpawn(this);
+			return RecyclableSingletonList.create(CustomPayload.create(version, InternalPluginMessageRequest.PELockChannel));
+		}
 		NetworkEntity player = cache.getWatchedEntityCache().getSelfPlayer();
 		RecyclableArrayList<ClientBoundPacketData> packets = RecyclableArrayList.create();
 		//Send fake resource packet for sounds.
@@ -54,9 +61,9 @@ public class StartGame extends MiddleStartGame {
 		VarNumberSerializer.writeSVarLong(startgame, playerEntityId); //player eid
 		VarNumberSerializer.writeVarLong(startgame, playerEntityId); //player eid
 		VarNumberSerializer.writeSVarInt(startgame, gamemode.getId()); //player gamemode
-		startgame.writeFloatLE(0); //player x
-		startgame.writeFloatLE(0); //player y
-		startgame.writeFloatLE(0); //player z
+		startgame.writeFloatLE((float) mcache.getPEClientX()); //player x
+		startgame.writeFloatLE((float) mcache.getPEClientY()); //player y
+		startgame.writeFloatLE((float) mcache.getPEClientZ()); //player z
 		startgame.writeFloatLE(0); //player pitch
 		startgame.writeFloatLE(0); //player yaw
 		VarNumberSerializer.writeSVarInt(startgame, 0); //seed
@@ -108,8 +115,6 @@ public class StartGame extends MiddleStartGame {
 		//Player metadata and settings update, so it won't behave strangely until metadata update is sent by server
 		packets.add(PEAdventureSettings.createPacket(cache));
 		packets.add(EntityMetadata.createFaux(player, cache.getAttributesCache().getLocale(), version));
-		//Can now switch to game state
-		packets.add(LoginSuccess.createPlayStatus(LoginSuccess.PLAYER_SPAWN));
 		//Send chunk radius update without waiting for request, works anyway
 		//PE uses circle to calculate visible chunks, so the view distance should cover all chunks that are sent by server (pc square should fit into pe circle)
 		ClientBoundPacketData chunkradius = ClientBoundPacketData.create(PEPacketIDs.CHUNK_RADIUS);
@@ -123,13 +128,10 @@ public class StartGame extends MiddleStartGame {
 		creativeInventoryPacket.writeBytes(peInv.getCreativeItems());
 		packets.add(creativeInventoryPacket);
 		//Set PE gamemode.
-		AttributesCache attrscache = cache.getAttributesCache();
-		attrscache.setPEGameMode(gamemode);
+		cache.getAttributesCache().setPEGameMode(gamemode);
 		//Disable player mobility for right now
-		cache.getMovementCache().setClientImmobile(true);
+		mcache.setClientImmobile(true);
 		packets.add(EntityMetadata.updatePlayerMobility(connection));
-		//Lock client bound packet queue until LocalPlayerInitialised or bungee confirm.
-		packets.add(CustomPayload.create(version, InternalPluginMessageRequest.PELockChannel));
 		return packets;
 	}
 

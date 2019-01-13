@@ -1,6 +1,7 @@
 package protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe;
 
 import org.bukkit.Bukkit;
+import org.bukkit.util.NumberConversions;
 import protocolsupport.api.ProtocolVersion;
 import protocolsupport.listeners.InternalPluginMessageRequest;
 import protocolsupport.listeners.internal.ChunkUpdateRequest;
@@ -52,11 +53,20 @@ public class Chunk extends MiddleChunk {
 				transformer.writeLegacyData(chunkdata);
 				chunkdata.writeByte(0); //borders
 				for (TileEntity tile : transformer.remapAndGetTiles()) {
-//					System.out.println("LOADING CHUNK TILE: " + tile.toString());
 					ItemStackSerializer.writeTag(chunkdata, true, version, tile.getNBT());
 				}
 			});
 			packets.add(serializer);
+			ChunkCoord playerChunk = new ChunkCoord(NumberConversions.floor(movecache.getPEClientX()) >> 4, NumberConversions.floor(movecache.getPEClientZ()) >> 4);
+			if (playerChunk.equals(chunk) && movecache.isFirstLocationSent()) {
+				movecache.setClientImmobile(false);
+				packets.add(EntityMetadata.updatePlayerMobility(connection));
+			}
+			if (!movecache.isFirstLocationSent()) {
+				movecache.setFirstLocationSent(true);
+				movecache.setPEClientPosition(chunk.getX() * 16, 100, chunk.getZ() * 16);
+				packets.add(CustomPayload.create(version, InternalPluginMessageRequest.PEUnlockChannel));
+			}
 			if (version.isAfterOrEq(ProtocolVersion.MINECRAFT_PE_1_8)) {
 				packets.add(createChunkPublisherUpdate((int) movecache.getPEClientX(), (int) movecache.getPEClientY(), (int) movecache.getPEClientZ()));
 			}

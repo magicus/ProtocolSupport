@@ -7,7 +7,6 @@ import protocolsupport.listeners.InternalPluginMessageRequest;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.clientbound.play.MiddleChangeDimension;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
-import protocolsupport.protocol.packet.middleimpl.clientbound.login.v_pe.LoginSuccess;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
 import protocolsupport.protocol.utils.networkentity.NetworkEntity;
@@ -40,17 +39,20 @@ public class ChangeDimension extends MiddleChangeDimension {
 		return packets;
 	}
 
-	public static void create(ProtocolVersion version, Environment dimension, NetworkEntity player, double posY, RecyclableCollection<ClientBoundPacketData> packets) {
+	public static ClientBoundPacketData createRaw(float x, float y, float z, int dimension) {
 		ClientBoundPacketData changedim = ClientBoundPacketData.create(PEPacketIDs.CHANGE_DIMENSION);
-		VarNumberSerializer.writeSVarInt(changedim, getPeDimensionId(dimension));
-		changedim.writeFloatLE(0); //x
-		changedim.writeFloatLE(0); //y
-		changedim.writeFloatLE(0); //z
+		VarNumberSerializer.writeSVarInt(changedim, dimension);
+		changedim.writeFloatLE(x); //x
+		changedim.writeFloatLE(y); //y
+		changedim.writeFloatLE(z); //z
 		changedim.writeBoolean(true); //respawn
-		packets.add(changedim);
+		return changedim;
+	}
+
+	public static void create(ProtocolVersion version, Environment dimension, NetworkEntity player, double posY, RecyclableCollection<ClientBoundPacketData> packets) {
+		packets.add(createRaw(0, 0, 0, getPeDimensionId(dimension)));
 		addFakeChunksAndPos(version, player, posY, packets);
-		packets.add(LoginSuccess.createPlayStatus(LoginSuccess.PLAYER_SPAWN));
-		//Lock client bound packet queue until LocalPlayerInitialised or bungee confirm.
+		//Lock client bound packet queue until dim switch or bungee confirm.
 		packets.add(CustomPayload.create(version, InternalPluginMessageRequest.PELockChannel));
 	}
 
@@ -60,7 +62,7 @@ public class ChangeDimension extends MiddleChangeDimension {
 				packets.add(Chunk.createEmptyChunk(version, new ChunkCoord(x, z)));
 			}
 		}
-		packets.add(SetPosition.create(player, 0, posY, 0, 0, 0, SetPosition.ANIMATION_MODE_TELEPORT));
+		packets.add(SetPosition.create(player, 0, posY, 0, 0, 0, 0, SetPosition.ANIMATION_MODE_TELEPORT));
 	}
 
 	public static int getPeDimensionId(Environment dimId) {
