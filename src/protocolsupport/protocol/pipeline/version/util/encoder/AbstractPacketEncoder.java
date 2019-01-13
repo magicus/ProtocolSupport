@@ -17,6 +17,7 @@ import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
 import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.utils.registry.MiddlePacketRegistry;
+import protocolsupport.utils.DebugUtils;
 import protocolsupport.utils.netty.MessageToMessageEncoder;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.zplatform.ServerPlatform;
@@ -38,6 +39,7 @@ public abstract class AbstractPacketEncoder extends MessageToMessageEncoder<Byte
 		NetworkState currentProtocol = connection.getNetworkState();
 		try {
 			ClientBoundMiddlePacket packetTransformer = registry.getTransformer(currentProtocol, VarNumberSerializer.readVarInt(input));
+			DebugUtils.logSentPacket(packetTransformer);
 			packetTransformer.readFromServerData(input);
 			if (input.isReadable()) {
 				throw new DecoderException("Did not read all data from packet, bytes left: " + input.readableBytes());

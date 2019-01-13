@@ -28,7 +28,7 @@ public class MoveVehicle extends ServerBoundMiddlePacket {
 	protected boolean teleported, onGround;
 
 	@Override
-	public void readFromClientData(ByteBuf clientdata) {
+	public void  readFromClientData(ByteBuf clientdata) {
 		vehicleId = (int) VarNumberSerializer.readVarLong(clientdata);
 		byte flag = clientdata.readByte();
 		onGround = (flag & 128) == 128;

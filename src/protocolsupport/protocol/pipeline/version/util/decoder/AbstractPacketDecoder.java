@@ -15,6 +15,7 @@ import protocolsupport.protocol.packet.middleimpl.ServerBoundPacketData;
 import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.utils.registry.MiddlePacketRegistry;
+import protocolsupport.utils.DebugUtils;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.zplatform.ServerPlatform;
 
@@ -32,6 +33,7 @@ public abstract class AbstractPacketDecoder extends MessageToMessageDecoder<Byte
 
 	protected void decodeAndTransform(ChannelHandlerContext ctx, ByteBuf buffer, List<Object> to) {
 		ServerBoundMiddlePacket packetTransformer = registry.getTransformer(connection.getNetworkState(), readPacketId(buffer));
+		DebugUtils.getInstance().logReadPacket(packetTransformer);
 		packetTransformer.readFromClientData(buffer);
 		try (RecyclableCollection<ServerBoundPacketData> data = processPackets(ctx.channel(), packetTransformer.toNative())) {
 			for (ServerBoundPacketData packetdata : data) {

@@ -1,5 +1,7 @@
 package protocolsupport.protocol.packet.middle;
 
+import java.util.Arrays;
+
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.storage.netcache.NetworkDataCache;
 import protocolsupport.utils.Utils;
@@ -15,7 +17,7 @@ public abstract class MiddlePacket {
 
 	@Override
 	public String toString() {
-		return Utils.toStringAllFields(this);
+		return Utils.toStringAllFields(this, Arrays.asList("connection", "cache"));
 	}
 
 }
