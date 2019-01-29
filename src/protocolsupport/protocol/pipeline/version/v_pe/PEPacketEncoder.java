@@ -30,6 +30,8 @@ import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityHe
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityLeash;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityLook;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityMetadata;
+import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityRelMove;
+import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityRelMoveLook;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntitySetAttributes;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityStatus;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.EntityTeleport;
@@ -59,6 +61,7 @@ import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.SpawnObj
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.SpawnPainting;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.SpawnPosition;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.StartGame;
+import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.StopSound;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.TimeUpdate;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.Title;
 import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.UnloadChunk;
@@ -70,7 +73,7 @@ import protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe.WorldSou
 import protocolsupport.protocol.packet.middleimpl.clientbound.status.v_pe.ServerInfo;
 import protocolsupport.protocol.pipeline.version.util.encoder.AbstractPacketEncoder;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
-import protocolsupport.protocol.typeremapper.packet.PEDimensionSwitchMovementConfirmationPacketQueue;
+import protocolsupport.protocol.typeremapper.packet.PEDimensionSwitchConfirmationPacketQueue;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableEmptyList;
 
@@ -107,6 +110,8 @@ public class PEPacketEncoder extends AbstractPacketEncoder {
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_ENTITY_TELEPORT_ID, EntityTeleport::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_ENTITY_HEAD_ROTATION_ID, EntityHeadRotation::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_ENTITY_LOOK_ID, EntityLook::new);
+		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_ENTITY_REL_MOVE_ID, EntityRelMove::new);
+		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_ENTITY_REL_MOVE_LOOK_ID, EntityRelMoveLook::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_ENTITY_DESTROY_ID, EntityDestroy::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_PLAYER_INFO_ID, PlayerListSetEntry::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_SPAWN_NAMED_ID, SpawnNamed::new);
@@ -128,6 +133,7 @@ public class PEPacketEncoder extends AbstractPacketEncoder {
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_EXPLOSION_ID, Explosion::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_WORLD_SOUND_ID, WorldSound::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_WORLD_CUSTOM_SOUND_ID, WorldCustomSound::new);
+		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_STOP_SOUND, StopSound::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_BLOCK_BREAK_ANIMATION_ID, BlockBreakAnimation::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_UPDATE_TILE_ID, BlockTileUpdate::new);
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_MAP_ID, Map::new);
@@ -143,11 +149,11 @@ public class PEPacketEncoder extends AbstractPacketEncoder {
 		registry.register(NetworkState.PLAY, ClientBoundPacket.PLAY_DECLARE_RECIPES, CraftingData::new);
 	}
 
-	protected final PEDimensionSwitchMovementConfirmationPacketQueue dimswitchq;
+	protected final PEDimensionSwitchConfirmationPacketQueue dimswitchq;
 
-	public PEPacketEncoder(ConnectionImpl connection, PEDimensionSwitchMovementConfirmationPacketQueue dimswitchq) {
+	public PEPacketEncoder(ConnectionImpl connection) {
 		super(connection);
-		this.dimswitchq = dimswitchq;
+		this.dimswitchq = connection.getCache().getPEPacketQueue();
 	}
 
 	@Override
