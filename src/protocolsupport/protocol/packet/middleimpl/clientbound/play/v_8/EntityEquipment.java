@@ -1,6 +1,5 @@
 package protocolsupport.protocol.packet.middleimpl.clientbound.play.v_8;
 
-import protocolsupport.api.ProtocolVersion;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.ClientBoundPacket;
 import protocolsupport.protocol.packet.middle.clientbound.play.MiddleEntityEquipment;
@@ -22,11 +21,10 @@ public class EntityEquipment extends MiddleEntityEquipment {
 		if (slot == 1) {
 			return RecyclableEmptyList.get();
 		} else {
-			ProtocolVersion version = connection.getVersion();
 			ClientBoundPacketData serializer = ClientBoundPacketData.create(ClientBoundPacket.PLAY_ENTITY_EQUIPMENT_ID);
 			VarNumberSerializer.writeVarInt(serializer, entityId);
 			serializer.writeShort(slot == 0 ? slot : slot - 1);
-			ItemStackSerializer.writeItemStack(serializer, version, cache.getAttributesCache().getLocale(), itemstack, true);
+			ItemStackSerializer.writeItemStack(serializer, version, cache.getAttributesCache().getLocale(), itemstack);
 			return RecyclableSingletonList.create(serializer);
 		}
 	}

@@ -7,7 +7,7 @@ import protocolsupport.protocol.utils.networkentity.NetworkEntity;
 
 public abstract class MiddleEntityMetadata extends MiddleEntity {
 
-	protected EntityRemapper entityRemapper = new EntityRemapper(connection.getVersion());
+	protected EntityRemapper entityRemapper = new EntityRemapper(version);
 
 	public MiddleEntityMetadata(ConnectionImpl connection) {
 		super(connection);
@@ -20,7 +20,7 @@ public abstract class MiddleEntityMetadata extends MiddleEntity {
 		super.readFromServerData(serverdata);
 		entity = cache.getWatchedEntityCache().getWatchedEntity(entityId);
 		if (entity != null) {
-			entityRemapper.readEntityWithMetadata(cache.getAttributesCache().getLocale(), entity, serverdata);
+			entityRemapper.readEntityWithMetadata(entity, serverdata);
 		} else {
 			serverdata.skipBytes(serverdata.readableBytes());
 		}

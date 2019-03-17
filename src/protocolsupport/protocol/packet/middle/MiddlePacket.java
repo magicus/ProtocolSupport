@@ -2,6 +2,7 @@ package protocolsupport.protocol.packet.middle;
 
 import java.util.Arrays;
 
+import protocolsupport.api.ProtocolVersion;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.storage.netcache.NetworkDataCache;
 import protocolsupport.utils.Utils;
@@ -9,10 +10,12 @@ import protocolsupport.utils.Utils;
 public abstract class MiddlePacket {
 
 	protected final ConnectionImpl connection;
-	protected final NetworkDataCache cache; //TODO: remove this field and use ConnectinImpl#getCache where needed
+	protected final NetworkDataCache cache;
+	protected final ProtocolVersion version;
 	public MiddlePacket(ConnectionImpl connection) {
 		this.connection = connection;
 		this.cache = connection.getCache();
+		this.version = connection.getVersion();
 	}
 
 	@Override

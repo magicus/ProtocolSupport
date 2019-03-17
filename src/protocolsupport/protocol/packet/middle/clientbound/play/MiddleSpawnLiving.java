@@ -13,7 +13,7 @@ import protocolsupport.protocol.utils.networkentity.NetworkEntity;
 
 public abstract class MiddleSpawnLiving extends ClientBoundMiddlePacket {
 
-	protected final EntityRemapper entityRemapper = new EntityRemapper(connection.getVersion());
+	protected final EntityRemapper entityRemapper = new EntityRemapper(version);
 
 	public MiddleSpawnLiving(ConnectionImpl connection) {
 		super(connection);
@@ -45,12 +45,12 @@ public abstract class MiddleSpawnLiving extends ClientBoundMiddlePacket {
 		motX = serverdata.readShort();
 		motY = serverdata.readShort();
 		motZ = serverdata.readShort();
-		entityRemapper.readEntityWithMetadata(cache.getAttributesCache().getLocale(), entity, serverdata);
+		entityRemapper.readEntityWithMetadata(entity, serverdata);
 	}
 
 	@Override
 	public boolean postFromServerRead() {
-		if (!GenericIdSkipper.ENTITY.getTable(connection.getVersion()).shouldSkip(entity.getType())) {
+		if (!GenericIdSkipper.ENTITY.getTable(version).shouldSkip(entity.getType())) {
 			cache.getWatchedEntityCache().addWatchedEntity(entity);
 			entityRemapper.remap(true);
 			return true;

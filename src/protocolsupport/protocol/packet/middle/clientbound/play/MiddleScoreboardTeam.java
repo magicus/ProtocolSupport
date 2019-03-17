@@ -1,14 +1,19 @@
 package protocolsupport.protocol.packet.middle.clientbound.play;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import io.netty.buffer.ByteBuf;
+import protocolsupport.ProtocolSupport;
 import protocolsupport.api.chat.ChatAPI;
 import protocolsupport.api.chat.components.BaseComponent;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.ClientBoundMiddlePacket;
 import protocolsupport.protocol.serializer.ArraySerializer;
+import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
-import protocolsupport.protocol.utils.ProtocolVersionsHelper;
+import protocolsupport.protocol.utils.EnumConstantLookups.EnumConstantLookup;
 
 public abstract class MiddleScoreboardTeam extends ClientBoundMiddlePacket {
 
@@ -16,9 +21,8 @@ public abstract class MiddleScoreboardTeam extends ClientBoundMiddlePacket {
 		super(connection);
 	}
 
-	//TODO: mode enum
 	protected String name;
-	protected int mode;
+	protected Mode mode;
 	protected BaseComponent displayName;
 	protected BaseComponent prefix;
 	protected BaseComponent suffix;
@@ -30,20 +34,54 @@ public abstract class MiddleScoreboardTeam extends ClientBoundMiddlePacket {
 
 	@Override
 	public void readFromServerData(ByteBuf serverdata) {
-		name = StringSerializer.readString(serverdata, ProtocolVersionsHelper.LATEST_PC, 16);
-		mode = serverdata.readUnsignedByte();
-		if ((mode == 0) || (mode == 2)) {
-			displayName = ChatAPI.fromJSON(StringSerializer.readString(serverdata, ProtocolVersionsHelper.LATEST_PC));
+		name = StringSerializer.readVarIntUTF8String(serverdata);
+		mode = MiscSerializer.readByteEnum(serverdata, Mode.CONSTANT_LOOKUP);
+		if ((mode == Mode.CREATE) || (mode == Mode.UPDATE)) {
+			displayName = ChatAPI.fromJSON(StringSerializer.readVarIntUTF8String(serverdata));
 			friendlyFire = serverdata.readUnsignedByte();
-			nameTagVisibility = StringSerializer.readString(serverdata, ProtocolVersionsHelper.LATEST_PC, 32);
-			collisionRule = StringSerializer.readString(serverdata, ProtocolVersionsHelper.LATEST_PC, 32);
+			nameTagVisibility = StringSerializer.readVarIntUTF8String(serverdata);
+			collisionRule = StringSerializer.readVarIntUTF8String(serverdata);
 			color = VarNumberSerializer.readVarInt(serverdata);
-			prefix = ChatAPI.fromJSON(StringSerializer.readString(serverdata, ProtocolVersionsHelper.LATEST_PC));
-			suffix = ChatAPI.fromJSON(StringSerializer.readString(serverdata, ProtocolVersionsHelper.LATEST_PC));
+			prefix = ChatAPI.fromJSON(StringSerializer.readVarIntUTF8String(serverdata));
+			suffix = ChatAPI.fromJSON(StringSerializer.readVarIntUTF8String(serverdata));
 		}
-		if ((mode == 0) || (mode == 3) || (mode == 4)) {
-			players = ArraySerializer.readVarIntStringArray(serverdata, ProtocolVersionsHelper.LATEST_PC, 40);
+		if ((mode == Mode.CREATE) || (mode == Mode.PLAYERS_ADD) || (mode == Mode.PLAYERS_REMOVE)) {
+			players = ArraySerializer.readVarIntVarIntUTF8StringArray(serverdata);
 		}
+	}
+
+	protected final Set<String> teams = new HashSet<>();
+
+	@Override
+	public boolean postFromServerRead() {
+		switch (mode) {
+			case CREATE: {
+				if (!teams.add(name)) {
+					ProtocolSupport.logWarning("Skipping creating duplicate scoreboard team " + name);
+					return false;
+				}
+				return true;
+			}
+			case REMOVE: {
+				if (!teams.remove(name)) {
+					ProtocolSupport.logWarning("Skipping removing unexisting scoreboard team " + name);
+					return false;
+				}
+				return true;
+			}
+			default: {
+				if (!teams.contains(name)) {
+					ProtocolSupport.logWarning("Skipping changing unexisting scoreboard team " + name);
+					return false;
+				}
+				return true;
+			}
+		}
+	}
+
+	protected static enum Mode {
+		CREATE, REMOVE, UPDATE, PLAYERS_ADD, PLAYERS_REMOVE;
+		public static final EnumConstantLookup<Mode> CONSTANT_LOOKUP = new EnumConstantLookup<>(Mode.class);
 	}
 
 }

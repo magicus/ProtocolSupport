@@ -11,7 +11,7 @@ import protocolsupport.protocol.serializer.ArraySerializer;
 import protocolsupport.protocol.serializer.ItemStackSerializer;
 import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
-import protocolsupport.protocol.typeremapper.legacy.LegacyChatJson;
+import protocolsupport.protocol.typeremapper.legacy.chat.LegacyChatJson;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
 
@@ -23,7 +23,6 @@ public class Advancements extends MiddleAdvancements {
 
 	@Override
 	public RecyclableCollection<ClientBoundPacketData> toData() {
-		ProtocolVersion version = connection.getVersion();
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(ClientBoundPacket.PLAY_ADVANCEMENTS);
 		serializer.writeBoolean(reset);
 		ArraySerializer.writeVarIntTArray(serializer, advancementsMapping, (to, element) -> {
@@ -58,7 +57,7 @@ public class Advancements extends MiddleAdvancements {
 	protected static void writeAdvancementDisplay(ByteBuf to, ProtocolVersion version, String locale, AdvancementDisplay display) {
 		StringSerializer.writeString(to, version, ChatAPI.toJSON(LegacyChatJson.convert(version, locale, display.title)));
 		StringSerializer.writeString(to, version, ChatAPI.toJSON(LegacyChatJson.convert(version, locale, display.description)));
-		ItemStackSerializer.writeItemStack(to, version, locale, display.icon, false);
+		ItemStackSerializer.writeItemStack(to, version, locale, display.icon);
 		MiscSerializer.writeVarIntEnum(to, display.frametype);
 		to.writeInt(display.flags);
 		if ((display.flags & AdvancementDisplay.flagHasBackgroundOffset) != 0) {

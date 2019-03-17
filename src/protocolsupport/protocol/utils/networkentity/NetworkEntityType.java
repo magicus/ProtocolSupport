@@ -3,6 +3,7 @@ package protocolsupport.protocol.utils.networkentity;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Map;
 
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.EntityType;
@@ -10,8 +11,10 @@ import org.bukkit.entity.EntityType;
 import protocolsupport.utils.CollectionsUtils;
 import protocolsupport.utils.CollectionsUtils.ArrayMap;
 import protocolsupport.zplatform.ServerPlatform;
+import protocolsupportbuildprocessor.Preload;
 
 @SuppressWarnings("deprecation")
+@Preload
 public enum NetworkEntityType {
 
 	NONE(EType.NONE, -1),
@@ -26,7 +29,7 @@ public enum NetworkEntityType {
 	EXP_ORB(EType.NONE, -1),
 	PAINTING(EType.NONE, -1),
 	// Globals
-	THUNDERBOLT(EType.GLOBAL, 1),
+	THUNDERBOLT(EType.GLOBAL, 1, EntityType.LIGHTNING, ENTITY),
 	// Mobs
 	COW(EType.MOB, EntityType.COW, NetworkEntityType.AGEABLE),
 	MUSHROOM_COW(EType.MOB, EntityType.MUSHROOM_COW, NetworkEntityType.COW),
@@ -160,18 +163,19 @@ public enum NetworkEntityType {
 		NONE, OBJECT, MOB, GLOBAL
 	}
 
-	private static final ArrayMap<NetworkEntityType> OBJECT_BY_N_ID = CollectionsUtils.makeEnumMappingArrayMap(Arrays.stream(NetworkEntityType.values()).filter(w -> w.etype == EType.OBJECT), (w -> w.typeId));
-	private static final ArrayMap<NetworkEntityType> MOB_BY_N_ID = CollectionsUtils.makeEnumMappingArrayMap(Arrays.stream(NetworkEntityType.values()).filter(w -> w.etype == EType.MOB), (w -> w.typeId));
-	private static final ArrayMap<NetworkEntityType> GLOBAL_BY_N_ID = CollectionsUtils.makeEnumMappingArrayMap(Arrays.stream(NetworkEntityType.values()).filter(w -> w.etype == EType.GLOBAL), (w -> w.typeId));
-	private static final ArrayMap<NetworkEntityType> BY_R_INT_ID = CollectionsUtils.makeEnumMappingArrayMap(Arrays.stream(NetworkEntityType.values()), (w -> w.bukkitType.getTypeId()));
-	private static final HashMap<String, NetworkEntityType> BY_R_STRING_ID = new HashMap<>();
+	protected static final ArrayMap<NetworkEntityType> OBJECT_BY_N_ID = CollectionsUtils.makeEnumMappingArrayMap(Arrays.stream(NetworkEntityType.values()).filter(w -> w.etype == EType.OBJECT), (w -> w.typeId));
+	protected static final ArrayMap<NetworkEntityType> MOB_BY_N_ID = CollectionsUtils.makeEnumMappingArrayMap(Arrays.stream(NetworkEntityType.values()).filter(w -> w.etype == EType.MOB), (w -> w.typeId));
+	protected static final ArrayMap<NetworkEntityType> GLOBAL_BY_N_ID = CollectionsUtils.makeEnumMappingArrayMap(Arrays.stream(NetworkEntityType.values()).filter(w -> w.etype == EType.GLOBAL), (w -> w.typeId));
+	protected static final Map<EntityType, NetworkEntityType> BY_B_TYPE = CollectionsUtils.makeEnumMappingEnumMap(Arrays.stream(NetworkEntityType.values()).filter(NetworkEntityType::isReal), EntityType.class, NetworkEntityType::getBukkitType);
+	protected static final Map<String, NetworkEntityType> BY_R_STRING_ID = new HashMap<>();
 	static {
 		Arrays.stream(NetworkEntityType.values())
+		.filter(NetworkEntityType::isReal)
 		.forEach(w -> {
 			String rName = w.bukkitType.getName();
 			if (rName != null) {
-				BY_R_STRING_ID.put(w.bukkitType.getName(), w);
-				BY_R_STRING_ID.put(NamespacedKey.minecraft(w.bukkitType.getName()).toString(), w);
+				BY_R_STRING_ID.put(rName, w);
+				BY_R_STRING_ID.put(NamespacedKey.minecraft(rName).toString(), w);
 			}
 		});
 	}
@@ -219,9 +223,8 @@ public enum NetworkEntityType {
 		return BY_R_STRING_ID.getOrDefault(name, NONE);
 	}
 
-	public static NetworkEntityType getByRegistryITypeId(int typeId) {
-		NetworkEntityType type = BY_R_INT_ID.get(typeId);
-		return type != null ? type : NONE;
+	public static NetworkEntityType getByBukkitType(EntityType btype) {
+		return BY_B_TYPE.getOrDefault(btype, NONE);
 	}
 
 	NetworkEntityType(EType etype, int typeId, EntityType bukkitType, NetworkEntityType superType) {
@@ -239,7 +242,7 @@ public enum NetworkEntityType {
 	}
 
 	NetworkEntityType(EType etype, int typeId, NetworkEntityType superType) {
-		this(etype, typeId, EntityType.UNKNOWN, superType);
+		this(etype, typeId, null, superType);
 	}
 
 	NetworkEntityType(EType etype, int typeId) {

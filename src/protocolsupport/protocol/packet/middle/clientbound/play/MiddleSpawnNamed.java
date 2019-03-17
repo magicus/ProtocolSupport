@@ -12,7 +12,7 @@ import protocolsupport.protocol.utils.networkentity.NetworkEntity;
 
 public abstract class MiddleSpawnNamed extends ClientBoundMiddlePacket {
 
-	protected final EntityRemapper entityRemapper = new EntityRemapper(connection.getVersion());
+	protected final EntityRemapper entityRemapper = new EntityRemapper(version);
 
 	public MiddleSpawnNamed(ConnectionImpl connection) {
 		super(connection);
@@ -35,7 +35,7 @@ public abstract class MiddleSpawnNamed extends ClientBoundMiddlePacket {
 		z = serverdata.readDouble();
 		yaw = serverdata.readByte();
 		pitch = serverdata.readByte();
-		entityRemapper.readEntityWithMetadata(cache.getAttributesCache().getLocale(), entity, serverdata);
+		entityRemapper.readEntityWithMetadata(entity, serverdata);
 	}
 
 	@Override

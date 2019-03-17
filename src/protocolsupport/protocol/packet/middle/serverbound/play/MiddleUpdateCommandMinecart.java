@@ -6,7 +6,6 @@ import protocolsupport.protocol.packet.middle.ServerBoundMiddlePacket;
 import protocolsupport.protocol.packet.middleimpl.ServerBoundPacketData;
 import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
-import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
 
@@ -22,11 +21,15 @@ public abstract class MiddleUpdateCommandMinecart extends ServerBoundMiddlePacke
 
 	@Override
 	public RecyclableCollection<ServerBoundPacketData> toNative() {
+		return RecyclableSingletonList.create(create(entityId, command, trackOutput));
+	}
+
+	public static ServerBoundPacketData create(int entityId, String command, boolean trackOutput) {
 		ServerBoundPacketData creator = ServerBoundPacketData.create(ServerBoundPacket.PLAY_UPDATE_COMMAND_MINECART);
 		VarNumberSerializer.writeVarInt(creator, entityId);
-		StringSerializer.writeString(creator, ProtocolVersionsHelper.LATEST_PC, command);
+		StringSerializer.writeVarIntUTF8String(creator, command);
 		creator.writeBoolean(trackOutput);
-		return RecyclableSingletonList.create(creator);
+		return creator;
 	}
 
 }

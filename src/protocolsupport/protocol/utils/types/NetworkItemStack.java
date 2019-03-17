@@ -5,9 +5,11 @@ import protocolsupport.utils.Utils;
 
 public class NetworkItemStack {
 
+	public static final int DEFAULT_LEGACY_DATA = -1;
+
 	protected int runtimeId;
 	protected int amount;
-	protected int legacyData;
+	protected int legacyData = DEFAULT_LEGACY_DATA;
 	protected NBTCompound nbt;
 
 	public boolean isNull() {
@@ -93,11 +95,6 @@ public class NetworkItemStack {
 		@Override
 		public boolean isNull() {
 			return true;
-		}
-
-		@Override
-		public NetworkItemStack cloneItemStack() {
-			return NetworkItemStack.NULL;
 		}
 
 		private UnsupportedOperationException reject() {
