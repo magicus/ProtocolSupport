@@ -10,6 +10,7 @@ import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
 import protocolsupport.protocol.typeremapper.pe.inventory.PEInventory.PESource;
 import protocolsupport.protocol.utils.networkentity.NetworkEntity;
 import protocolsupport.protocol.utils.networkentity.NetworkEntityDataCache;
+import protocolsupport.protocol.utils.networkentity.NetworkEntityType;
 import protocolsupport.protocol.utils.types.NetworkItemStack;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableEmptyList;
@@ -26,36 +27,43 @@ public class EntityEquipment extends MiddleEntityEquipment {
 		ProtocolVersion version = connection.getVersion();
 		String locale = cache.getAttributesCache().getLocale();
 		NetworkEntity entity = cache.getWatchedEntityCache().getWatchedEntity(entityId);
-		if (entity == null) {
+		boolean up19 = version.isAfterOrEq(ProtocolVersion.MINECRAFT_PE_1_9);
+		if (entity == null || (entity.getType().equals(NetworkEntityType.ARMOR_STAND_OBJECT) && up19)) {
 			return RecyclableEmptyList.get();
 		}
+		boolean isPlayer = entity.getType().equals(NetworkEntityType.PLAYER);
 		NetworkEntityDataCache dataCache = entity.getDataCache();
+		NetworkEntityDataCache.Equipment equipment = dataCache.getEquipment();
 		if (slot > 1) {
 			// Armor update
 			switch (slot) {
 				case 2: {
-					dataCache.setBoots(itemstack);
+					equipment.setBoots(itemstack);
 					break;
 				}
 				case 3: {
-					dataCache.setLeggings(itemstack);
+					equipment.setLeggings(itemstack);
 					break;
 				}
 				case 4: {
-					dataCache.setChestplate(itemstack);
+					equipment.setChestplate(itemstack);
 					break;
 				}
 				case 5: {
-					dataCache.setHelmet(itemstack);
+					equipment.setHelmet(itemstack);
 					break;
 				}
 			}
-			return RecyclableSingletonList.create(create(version, locale, entityId, dataCache.getHelmet(), dataCache.getChestplate(), dataCache.getLeggings(), dataCache.getBoots()));
+			return RecyclableSingletonList.create(create(version, locale, entityId, equipment.getHelmet(), equipment.getChestplate(), equipment.getLeggings(), equipment.getBoots()));
+		}
+		//TODO: hand and offhand on mobs crashes 1.9. why?
+		if (up19 && !isPlayer) {
+			return RecyclableEmptyList.get();
 		}
 		if (slot == 1) {
-			dataCache.setHand(itemstack);
+			equipment.setHand(itemstack);
 		} else {
-			dataCache.setOffHand(itemstack);
+			equipment.setOffHand(itemstack);
 		}
 		return RecyclableSingletonList.create(createUpdateHand(version, locale, entityId, itemstack, cache.getWatchedEntityCache().isSelf(entityId) ? cache.getPEInventoryCache().getSelectedSlot() : 0, slot == 1));
 	}
@@ -63,17 +71,17 @@ public class EntityEquipment extends MiddleEntityEquipment {
 	public static ClientBoundPacketData create(ProtocolVersion version, String locale, long entityId, NetworkItemStack helmet, NetworkItemStack chestplate, NetworkItemStack leggings, NetworkItemStack boots) {
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.MOB_ARMOR_EQUIPMENT);
 		VarNumberSerializer.writeVarLong(serializer, entityId);
-		ItemStackSerializer.writeItemStack(serializer, version, locale, helmet, true);
-		ItemStackSerializer.writeItemStack(serializer, version, locale, chestplate, true);
-		ItemStackSerializer.writeItemStack(serializer, version, locale, leggings, true);
-		ItemStackSerializer.writeItemStack(serializer, version, locale, boots, true);
+		ItemStackSerializer.writeItemStack(serializer, version, locale, helmet);
+		ItemStackSerializer.writeItemStack(serializer, version, locale, chestplate);
+		ItemStackSerializer.writeItemStack(serializer, version, locale, leggings);
+		ItemStackSerializer.writeItemStack(serializer, version, locale, boots);
 		return serializer;
 	}
 
 	public static ClientBoundPacketData createUpdateHand(ProtocolVersion version, String locale, int entityId, NetworkItemStack itemstack, int slot, boolean isMainHand) {
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.MOB_EQUIPMENT);
 		VarNumberSerializer.writeVarLong(serializer, entityId);
-		ItemStackSerializer.writeItemStack(serializer, version, locale, itemstack, true);
+		ItemStackSerializer.writeItemStack(serializer, version, locale, itemstack);
 		serializer.writeByte(slot);
 		serializer.writeByte(slot);
 		serializer.writeByte(isMainHand ? PESource.POCKET_OFFHAND : PESource.POCKET_INVENTORY);

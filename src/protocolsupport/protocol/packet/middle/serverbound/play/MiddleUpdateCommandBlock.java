@@ -8,12 +8,15 @@ import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.PositionSerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.utils.EnumConstantLookups.EnumConstantLookup;
-import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 import protocolsupport.protocol.utils.types.Position;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
 
 public abstract class MiddleUpdateCommandBlock extends ServerBoundMiddlePacket {
+
+	public static final int FLAG_TRACK_OUTPUT = 0x1;
+	public static final int FLAG_CONDITIONAL = 0x2;
+	public static final int FLAG_AUTO = 0x4;
 
 	public MiddleUpdateCommandBlock(ConnectionImpl connection) {
 		super(connection);
@@ -26,17 +29,21 @@ public abstract class MiddleUpdateCommandBlock extends ServerBoundMiddlePacket {
 
 	@Override
 	public RecyclableCollection<ServerBoundPacketData> toNative() {
-		ServerBoundPacketData creator = ServerBoundPacketData.create(ServerBoundPacket.PLAY_UPDATE_COMMAND_BLOCK);
-		PositionSerializer.writePosition(creator, position);
-		StringSerializer.writeString(creator, ProtocolVersionsHelper.LATEST_PC, command);
-		MiscSerializer.writeVarIntEnum(creator, mode);
-		creator.writeByte(flags);
-		return RecyclableSingletonList.create(creator);
+		return RecyclableSingletonList.create(create(position, command, mode, flags));
 	}
 
 	public static enum Mode {
 		SEQUENCE, AUTO, REDSTONE;
 		public static final EnumConstantLookup<Mode> CONSTANT_LOOKUP = new EnumConstantLookup<>(Mode.class);
+	}
+
+	public static ServerBoundPacketData create(Position position, String command, Mode mode, int flags) {
+		ServerBoundPacketData creator = ServerBoundPacketData.create(ServerBoundPacket.PLAY_UPDATE_COMMAND_BLOCK);
+		PositionSerializer.writePosition(creator, position);
+		StringSerializer.writeVarIntUTF8String(creator, command);
+		MiscSerializer.writeVarIntEnum(creator, mode);
+		creator.writeByte(flags);
+		return creator;
 	}
 
 }

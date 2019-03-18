@@ -1,6 +1,10 @@
 package protocolsupport.protocol.packet.middle.clientbound.play;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import io.netty.buffer.ByteBuf;
+import protocolsupport.ProtocolSupport;
 import protocolsupport.api.chat.ChatAPI;
 import protocolsupport.api.chat.components.BaseComponent;
 import protocolsupport.protocol.ConnectionImpl;
@@ -8,7 +12,6 @@ import protocolsupport.protocol.packet.middle.ClientBoundMiddlePacket;
 import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.utils.EnumConstantLookups.EnumConstantLookup;
-import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 
 public abstract class MiddleScoreboardObjective extends ClientBoundMiddlePacket {
 
@@ -23,11 +26,40 @@ public abstract class MiddleScoreboardObjective extends ClientBoundMiddlePacket 
 
 	@Override
 	public void readFromServerData(ByteBuf serverdata) {
-		name = StringSerializer.readString(serverdata, ProtocolVersionsHelper.LATEST_PC, 16);
+		name = StringSerializer.readVarIntUTF8String(serverdata);
 		mode = MiscSerializer.readByteEnum(serverdata, Mode.CONSTANT_LOOKUP);
 		if (mode != Mode.REMOVE) {
-			value = ChatAPI.fromJSON(StringSerializer.readString(serverdata, ProtocolVersionsHelper.LATEST_PC));
+			value = ChatAPI.fromJSON(StringSerializer.readVarIntUTF8String(serverdata));
 			type = MiscSerializer.readVarIntEnum(serverdata, Type.CONSTANT_LOOKUP);
+		}
+	}
+
+	protected final Set<String> objectives = new HashSet<>();
+
+	@Override
+	public boolean postFromServerRead() {
+		switch (mode) {
+			case CREATE: {
+				if (!objectives.add(name)) {
+					ProtocolSupport.logWarning("Skipping creating duplicate scoreboard objective " + name);
+					return false;
+				}
+				return true;
+			}
+			case REMOVE: {
+				if (!objectives.remove(name)) {
+					ProtocolSupport.logWarning("Skipping removing unexisting scoreboard objective " + name);
+					return false;
+				}
+				return true;
+			}
+			default: {
+				if (!objectives.contains(name)) {
+					ProtocolSupport.logWarning("Skipping changing unexisting scoreboard objective " + name);
+					return false;
+				}
+				return true;
+			}
 		}
 	}
 

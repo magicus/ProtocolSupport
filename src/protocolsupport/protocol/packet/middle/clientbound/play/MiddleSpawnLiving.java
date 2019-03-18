@@ -13,7 +13,7 @@ import protocolsupport.protocol.utils.networkentity.NetworkEntity;
 
 public abstract class MiddleSpawnLiving extends ClientBoundMiddlePacket {
 
-	protected final EntityRemapper entityRemapper = new EntityRemapper(connection.getVersion());
+	protected final EntityRemapper entityRemapper = new EntityRemapper(version);
 
 	public MiddleSpawnLiving(ConnectionImpl connection) {
 		super(connection);
@@ -23,9 +23,9 @@ public abstract class MiddleSpawnLiving extends ClientBoundMiddlePacket {
 	protected double x;
 	protected double y;
 	protected double z;
-	protected int yaw;
-	protected int pitch;
-	protected int headPitch;
+	protected byte yaw;
+	protected byte pitch;
+	protected byte headYaw;
 	protected int motX;
 	protected int motY;
 	protected int motZ;
@@ -39,18 +39,18 @@ public abstract class MiddleSpawnLiving extends ClientBoundMiddlePacket {
 		x = serverdata.readDouble();
 		y = serverdata.readDouble();
 		z = serverdata.readDouble();
-		yaw = serverdata.readUnsignedByte();
-		pitch = serverdata.readUnsignedByte();
-		headPitch = serverdata.readUnsignedByte();
+		yaw = serverdata.readByte();
+		pitch = serverdata.readByte();
+		headYaw = serverdata.readByte();
 		motX = serverdata.readShort();
 		motY = serverdata.readShort();
 		motZ = serverdata.readShort();
-		entityRemapper.readEntityWithMetadata(cache.getAttributesCache().getLocale(), entity, serverdata);
+		entityRemapper.readEntityWithMetadata(entity, serverdata);
 	}
 
 	@Override
 	public boolean postFromServerRead() {
-		if (!GenericIdSkipper.ENTITY.getTable(connection.getVersion()).shouldSkip(entity.getType())) {
+		if (!GenericIdSkipper.ENTITY.getTable(version).shouldSkip(entity.getType())) {
 			cache.getWatchedEntityCache().addWatchedEntity(entity);
 			entityRemapper.remap(true);
 			return true;

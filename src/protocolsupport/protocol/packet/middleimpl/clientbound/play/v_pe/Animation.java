@@ -1,7 +1,7 @@
 package protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe;
 
 import protocolsupport.protocol.ConnectionImpl;
-import protocolsupport.protocol.packet.middle.clientbound.play.MiddleAnimation;
+import protocolsupport.protocol.packet.middle.clientbound.play.MiddleEntityAnimation;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
@@ -9,7 +9,7 @@ import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableEmptyList;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
 
-public class Animation extends MiddleAnimation {
+public class Animation extends MiddleEntityAnimation {
 
 	public Animation(ConnectionImpl connection) {
 		super(connection);
@@ -18,11 +18,21 @@ public class Animation extends MiddleAnimation {
 	@Override
 	public RecyclableCollection<ClientBoundPacketData> toData() {
 		switch (animation) {
-			case 0: {
+			case SWING_ARM: {
 				return RecyclableSingletonList.create(create(entityId, 1));
 			}
-			case 2: {
+			case TAKE_DAMAGE: {
+				return RecyclableSingletonList.create(EntityStatus.create(entityId, 2)); //HURT_ANIMATION
+			}
+			case WAKE_UP: {
 				return RecyclableSingletonList.create(create(entityId, 3));
+			}
+			case EAT: {
+				return RecyclableSingletonList.create(EntityStatus.create(entityId, 57)); //EATING_ITEM
+			}
+			case CRIT:
+			case MAGIC_CRIT: {
+				return RecyclableSingletonList.create(create(entityId, 4));
 			}
 			default: {
 				return RecyclableEmptyList.get();

@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+//TODO: add repair recipes for all types that can take damade
 public class CraftingData extends MiddleDeclareRecipes {
 
 	public static final int PE_RECIPE_TYPE_SHAPELESS = 0;
@@ -41,17 +42,19 @@ public class CraftingData extends MiddleDeclareRecipes {
 		String locale = connection.getCache().getAttributesCache().getLocale();
 		LinkedList<Ingredient> tail = new LinkedList<>(ingredients);
 		Ingredient first = tail.removeFirst();
-		NetworkItemStack[] possibleStacks = first.getPossibleStacks();
+		NetworkItemStack[] possibleStacks = first.getPossibleStacks().clone();
+		for (int i = 0 ; i < possibleStacks.length ; i++) {
+			possibleStacks[i] = ItemStackSerializer.remapItemToClient(connection.getVersion(), locale, possibleStacks[i].cloneItemStack());
+		}
 		if (possibleStacks.length == 0) { //empty
-			possibleStacks = new NetworkItemStack[]{null};
+			possibleStacks = new NetworkItemStack[]{NetworkItemStack.NULL};
 		}
 		if (possibleStacks.length > 2) { //'large' ingredient set
-			NetworkItemStack firstType = ItemStackSerializer.remapItemToClient(connection.getVersion(), locale, possibleStacks[0].cloneItemStack());
+			NetworkItemStack firstType = possibleStacks[0];
 			boolean allSameType = true;
 			//see if all ingredients are variants of the same type
 			for (NetworkItemStack ing : possibleStacks) {
-				NetworkItemStack thisType = ItemStackSerializer.remapItemToClient(connection.getVersion(), locale, ing.cloneItemStack());
-				if (thisType.getTypeId() != firstType.getTypeId() || thisType.getAmount() != 1) {
+				if (ing.getTypeId() != firstType.getTypeId() || ing.getAmount() != 1) {
 					allSameType = false;
 					break;
 				}
@@ -61,7 +64,7 @@ public class CraftingData extends MiddleDeclareRecipes {
 				wildStack.setTypeId(firstType.getTypeId());
 				wildStack.setLegacyData(-1); //wildcard stack
 				wildStack.setAmount(1);
-				possibleStacks = new NetworkItemStack[]{wildStack};
+				possibleStacks = new NetworkItemStack[]{ wildStack };
 			}
 		}
 		for (NetworkItemStack item : possibleStacks) {
@@ -114,10 +117,10 @@ public class CraftingData extends MiddleDeclareRecipes {
 		VarNumberSerializer.writeSVarInt(to, width);
 		VarNumberSerializer.writeSVarInt(to, height);
 		for (NetworkItemStack stack : required) {
-			ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, stack, stack == null || stack.getLegacyData() != -1);
+			ItemStackSerializer.writePEItemStack(to, stack);
 		}
-		VarNumberSerializer.writeVarInt(to, 1); // result item count (PC only supports one itemstack output, so hardcoded to 1)
-		ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, output, true);
+		VarNumberSerializer.writeVarInt(to, 1); // result item count
+		ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, output);
 		MiscSerializer.writePEUUID(to, UUID.nameUUIDFromBytes(to.array()));
 		recipesWritten++;
 	}
@@ -127,26 +130,25 @@ public class CraftingData extends MiddleDeclareRecipes {
 		VarNumberSerializer.writeSVarInt(to, PE_RECIPE_TYPE_SHAPELESS); //recipe type
 		VarNumberSerializer.writeVarInt(to, required.size());
 		for (NetworkItemStack stack : required) {
-			ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, stack, stack == null || stack.getLegacyData() != -1);
+			ItemStackSerializer.writePEItemStack(to, stack);
 		}
-		VarNumberSerializer.writeVarInt(to, 1); // result item count (PC only supports one itemstack output, so hardcoded to 1)
-		ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, output, true);
+		VarNumberSerializer.writeVarInt(to, 1); // result item count
+		ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, output);
 		MiscSerializer.writePEUUID(to, UUID.nameUUIDFromBytes(to.array()));
 		recipesWritten++;
 	}
 
 	protected void addRecipeFurnace(ByteBuf to, NetworkItemStack output, NetworkItemStack input) {
 		String locale = connection.getCache().getAttributesCache().getLocale();
-		int peCombinedId = PEItems.getPECombinedIdByModernId(input.getTypeId());
-		if (PEItems.getDataFromPECombinedId(peCombinedId) == 0) {
+		if (input.getLegacyData() == 0) {
 			VarNumberSerializer.writeSVarInt(to, PE_RECIPE_TYPE_FURNACE); //recipe type
-			VarNumberSerializer.writeSVarInt(to, PEItems.getIdFromPECombinedId(peCombinedId));
-			ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, output, output == null || output.getLegacyData() != -1);
+			VarNumberSerializer.writeSVarInt(to, input.getTypeId());
+			ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, output);
 		} else { //meta recipe
 			VarNumberSerializer.writeSVarInt(to, PE_RECIPE_TYPE_FURNACE_META); //recipe type, with data
-			VarNumberSerializer.writeSVarInt(to, PEItems.getIdFromPECombinedId(peCombinedId));
-			VarNumberSerializer.writeSVarInt(to, PEItems.getDataFromPECombinedId(peCombinedId));
-			ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, output, output == null || output.getLegacyData() != -1);
+			VarNumberSerializer.writeSVarInt(to, input.getTypeId());
+			VarNumberSerializer.writeSVarInt(to, input.getLegacyData());
+			ItemStackSerializer.writeItemStack(to, connection.getVersion(), locale, output);
 		}
 		recipesWritten++;
 	}

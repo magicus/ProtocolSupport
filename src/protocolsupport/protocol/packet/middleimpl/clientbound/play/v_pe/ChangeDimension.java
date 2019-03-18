@@ -2,8 +2,6 @@ package protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe;
 
 import java.text.MessageFormat;
 
-import protocolsupport.api.ProtocolVersion;
-import protocolsupport.listeners.InternalPluginMessageRequest;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.clientbound.play.MiddleChangeDimension;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
@@ -36,31 +34,26 @@ public class ChangeDimension extends MiddleChangeDimension {
 			packets.add(InventoryClose.create(connection.getVersion(), cache.getWindowCache().getOpenedWindowId()));
 			cache.getWindowCache().closeWindow();
 		}
-		create(connection.getVersion(), dimension, cache.getWatchedEntityCache().getSelfPlayer(), cache.getAttributesCache().getPEFakeSetPositionY(), packets);
+		addChangeDimension(packets, cache.getWatchedEntityCache().getSelfPlayer(), dimension);
 		return packets;
 	}
 
-	public static void create(ProtocolVersion version, Environment dimension, NetworkEntity player, double posY, RecyclableCollection<ClientBoundPacketData> packets) {
+	public static ClientBoundPacketData createRaw(float x, float y, float z, int dimension) {
 		ClientBoundPacketData changedim = ClientBoundPacketData.create(PEPacketIDs.CHANGE_DIMENSION);
-		VarNumberSerializer.writeSVarInt(changedim, getPeDimensionId(dimension));
-		changedim.writeFloatLE(0); //x
-		changedim.writeFloatLE(0); //y
-		changedim.writeFloatLE(0); //z
+		VarNumberSerializer.writeSVarInt(changedim, dimension);
+		changedim.writeFloatLE(x); //x
+		changedim.writeFloatLE(y); //y
+		changedim.writeFloatLE(z); //z
 		changedim.writeBoolean(true); //respawn
-		packets.add(changedim);
-		addFakeChunksAndPos(version, player, posY, packets);
-		packets.add(LoginSuccess.createPlayStatus(LoginSuccess.PLAYER_SPAWN));
-		//Lock client bound packet queue until LocalPlayerInitialised or bungee confirm.
-		packets.add(CustomPayload.create(version, InternalPluginMessageRequest.PELockChannel));
+		return changedim;
 	}
 
-	public static void addFakeChunksAndPos(ProtocolVersion version, NetworkEntity player, double posY, RecyclableCollection<ClientBoundPacketData> packets) {
-		for (int x = -2; x <= 2; x++) {
-			for (int z = -2; z <= 2; z++) {
-				packets.add(Chunk.createEmptyChunk(version, new ChunkCoord(x, z)));
-			}
-		}
-		packets.add(SetPosition.create(player, 0, posY, 0, 0, 0, SetPosition.ANIMATION_MODE_TELEPORT));
+	public static void addChangeDimension(RecyclableCollection<ClientBoundPacketData> packets, NetworkEntity player, Environment dimension) {
+		packets.add(createRaw(8, 18, 8, getPeDimensionId(dimension)));
+		packets.add(Chunk.createChunkPublisherUpdate(0, 0, 0));
+		Chunk.addFakeChunks(packets, new ChunkCoord(0, 0));
+		packets.add(SetPosition.create(player, 0, 18, 0, 0, 0, 0, SetPosition.ANIMATION_MODE_ALL));
+		packets.add(LoginSuccess.createPlayStatus(LoginSuccess.PLAYER_SPAWN));
 	}
 
 	public static int getPeDimensionId(Environment dimId) {

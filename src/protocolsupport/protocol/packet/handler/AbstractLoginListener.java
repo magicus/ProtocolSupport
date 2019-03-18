@@ -24,7 +24,6 @@ import org.bukkit.event.player.PlayerPreLoginEvent;
 
 import io.netty.channel.ChannelPipeline;
 import protocolsupport.ProtocolSupport;
-import protocolsupport.api.ProtocolType;
 import protocolsupport.api.ProtocolVersion;
 import protocolsupport.api.events.PlayerLoginStartEvent;
 import protocolsupport.api.events.PlayerProfileCompleteEvent;
@@ -35,14 +34,16 @@ import protocolsupport.protocol.utils.MinecraftEncryption;
 import protocolsupport.protocol.utils.authlib.GameProfile;
 import protocolsupport.protocol.utils.authlib.MinecraftSessionService;
 import protocolsupport.protocol.utils.authlib.MinecraftSessionService.AuthenticationUnavailableException;
-import protocolsupport.utils.Utils;
+import protocolsupport.utils.JavaSystemProperty;
 import protocolsupport.zplatform.ServerPlatform;
 import protocolsupport.zplatform.network.NetworkManagerWrapper;
+import protocolsupportbuildprocessor.Preload;
 
 @SuppressWarnings("deprecation")
+@Preload
 public abstract class AbstractLoginListener implements IPacketListener {
 
-	protected static final int loginThreadKeepAlive = Utils.getJavaPropertyValue("loginthreadskeepalive", 60, Integer::parseInt);
+	protected static final int loginThreadKeepAlive = JavaSystemProperty.getValue("loginthreadskeepalive", 60, Integer::parseInt);
 
 	static {
 		ProtocolSupport.logInfo(MessageFormat.format("Login threads keep alive time: {0}", loginThreadKeepAlive));
@@ -69,7 +70,7 @@ public abstract class AbstractLoginListener implements IPacketListener {
 	}
 
 	protected int loginTicks;
-	public void tick() {
+	public void loginTick() {
 		if (loginTicks++ == 600) {
 			disconnect("Took too long to log in");
 		}
@@ -240,7 +241,7 @@ public abstract class AbstractLoginListener implements IPacketListener {
 		if (event.getForcedUUID() != null) {
 			profile.setUUID(event.getForcedUUID());
 		}
-		profile.setProperties(event.getProperties());
+		event.getProperties().values().forEach(c -> c.forEach(profile::addProperty));
 
 		//bukkit async prelogin event, no uuid and name modifications sohuld be done after it, so this event must be always fired after profile complete
 		AsyncPlayerPreLoginEvent asyncEvent = new AsyncPlayerPreLoginEvent(profile.getName(), address, profile.getUUID());

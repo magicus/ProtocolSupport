@@ -3,7 +3,6 @@ package protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe;
 import org.bukkit.Bukkit;
 
 import protocolsupport.api.ProtocolVersion;
-import protocolsupport.listeners.InternalPluginMessageRequest;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.middle.clientbound.play.MiddleStartGame;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
@@ -11,12 +10,12 @@ import protocolsupport.protocol.packet.middleimpl.clientbound.login.v_pe.LoginSu
 import protocolsupport.protocol.serializer.PositionSerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
-import protocolsupport.protocol.storage.netcache.AttributesCache;
 import protocolsupport.protocol.typeremapper.pe.PEAdventureSettings;
 import protocolsupport.protocol.typeremapper.pe.PEBlocks;
 import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
 import protocolsupport.protocol.typeremapper.pe.inventory.PEInventory.PESource;
 import protocolsupport.protocol.utils.networkentity.NetworkEntity;
+import protocolsupport.protocol.utils.types.ChunkCoord;
 import protocolsupport.protocol.utils.types.GameMode;
 import protocolsupport.protocol.utils.types.Position;
 import protocolsupport.utils.recyclable.RecyclableArrayList;
@@ -34,29 +33,37 @@ public class StartGame extends MiddleStartGame {
 		ProtocolVersion version = connection.getVersion();
 		NetworkEntity player = cache.getWatchedEntityCache().getSelfPlayer();
 		RecyclableArrayList<ClientBoundPacketData> packets = RecyclableArrayList.create();
+
 		//Send fake resource packet for sounds.
 		ClientBoundPacketData resourcepack = ClientBoundPacketData.create(PEPacketIDs.RESOURCE_PACK);
 		resourcepack.writeBoolean(false); // required
 		resourcepack.writeShortLE(0); //beh packs count
+		if (version.isAfterOrEq(ProtocolVersion.MINECRAFT_PE_1_9)) {
+			resourcepack.writeBoolean(false); // ???
+		}
 		resourcepack.writeShortLE(0); //res packs count
+		if (version.isAfterOrEq(ProtocolVersion.MINECRAFT_PE_1_9)) {
+			resourcepack.writeBoolean(false); // ???
+		}
 		packets.add(resourcepack);
+
 		//Send fake resource stack for sounds.
 		ClientBoundPacketData resourcestack = ClientBoundPacketData.create(PEPacketIDs.RESOURCE_STACK);
 		resourcestack.writeBoolean(false); // required
 		VarNumberSerializer.writeVarInt(resourcestack, 0); //beh packs count
 		VarNumberSerializer.writeVarInt(resourcestack, 0); //res packs count
-		if (version.isAfterOrEq(ProtocolVersion.MINECRAFT_PE_1_8)) {
-			resourcestack.writeBoolean(false); //is experimental
-		}
+		VarNumberSerializer.writeVarInt(resourcestack, 0); //?
+		VarNumberSerializer.writeVarInt(resourcestack, 0); //?
 		packets.add(resourcestack);
+
 		//Send actual start game information.
 		ClientBoundPacketData startgame = ClientBoundPacketData.create(PEPacketIDs.START_GAME);
 		VarNumberSerializer.writeSVarLong(startgame, playerEntityId); //player eid
 		VarNumberSerializer.writeVarLong(startgame, playerEntityId); //player eid
 		VarNumberSerializer.writeSVarInt(startgame, gamemode.getId()); //player gamemode
-		startgame.writeFloatLE(0); //player x
-		startgame.writeFloatLE(0); //player y
-		startgame.writeFloatLE(0); //player z
+		startgame.writeFloatLE(8); //player x
+		startgame.writeFloatLE(18); //player y
+		startgame.writeFloatLE(8); //player z
 		startgame.writeFloatLE(0); //player pitch
 		startgame.writeFloatLE(0); //player yaw
 		VarNumberSerializer.writeSVarInt(startgame, 0); //seed
@@ -71,9 +78,17 @@ public class StartGame extends MiddleStartGame {
 		startgame.writeBoolean(false); //edu features
 		startgame.writeFloatLE(0); //rain level
 		startgame.writeFloatLE(0); //lighting level
+		if (version.isAfterOrEq(ProtocolVersion.MINECRAFT_PE_1_9)) {
+			startgame.writeBoolean(false); //???
+		}
 		startgame.writeBoolean(true); //is multiplayer
 		startgame.writeBoolean(false); //broadcast to lan
-		startgame.writeBoolean(false); //broadcast to xbl
+		if (version.isAfterOrEq(ProtocolVersion.MINECRAFT_PE_1_9)) {
+			VarNumberSerializer.writeSVarInt(startgame, 3); //xbox live broadcast, 3 = friends of friends
+			VarNumberSerializer.writeSVarInt(startgame, 3); //platform broadcast
+		} else {
+			startgame.writeBoolean(true); //broadcast to xbl
+		}
 		startgame.writeBoolean(true); //commands enabled
 		startgame.writeBoolean(false); //needs texture pack
 		VarNumberSerializer.writeVarInt(startgame, 0); //game rules
@@ -81,21 +96,25 @@ public class StartGame extends MiddleStartGame {
 		//VarNumberSerializer.writeVarInt(startgame, 1); //bool gamerule
 		startgame.writeBoolean(false); //bonus chest
 		startgame.writeBoolean(false); //player map enabled
-		startgame.writeBoolean(false); //trust players
+		if (version.isBefore(ProtocolVersion.MINECRAFT_PE_1_9)) {
+			startgame.writeBoolean(false); //trust players
+		}
 		VarNumberSerializer.writeSVarInt(startgame, PEAdventureSettings.GROUP_NORMAL); //permission level
-		VarNumberSerializer.writeSVarInt(startgame, 4); //game publish setting
+		if (version.isBefore(ProtocolVersion.MINECRAFT_PE_1_9)) {
+			VarNumberSerializer.writeSVarInt(startgame, 4); //game publish setting
+		}
 		startgame.writeIntLE((int) Math.ceil((Bukkit.getViewDistance() + 1) * Math.sqrt(2))); //Server chunk tick radius..
-		startgame.writeBoolean(false); //Platformbroadcast
-		VarNumberSerializer.writeVarInt(startgame, 0); //Broadcast mode
-		startgame.writeBoolean(false); //Broadcast intent
+		if (version.isBefore(ProtocolVersion.MINECRAFT_PE_1_9)) {
+			startgame.writeBoolean(false); //Platformbroadcast
+			VarNumberSerializer.writeSVarInt(startgame, 0); //Broadcast mode
+			startgame.writeBoolean(false); //Broadcast intent
+		}
 		startgame.writeBoolean(false); //hasLockedRes pack
 		startgame.writeBoolean(false); //hasLockedBeh pack
 		startgame.writeBoolean(false); //hasLocked world template.
 		startgame.writeBoolean(false); //Microsoft GamerTags only. Hell no!
-		if (version.isAfterOrEq(ProtocolVersion.MINECRAFT_PE_1_8)) {
-			startgame.writeBoolean(false); //is from world template
-			startgame.writeBoolean(false); //is world template option locked
-		}
+		startgame.writeBoolean(false); //is from world template
+		startgame.writeBoolean(false); //is world template option locked
 		StringSerializer.writeString(startgame, connection.getVersion(), ""); //level ID (empty string)
 		StringSerializer.writeString(startgame, connection.getVersion(), ""); //world name (empty string)
 		StringSerializer.writeString(startgame, connection.getVersion(), ""); //premium world template id (empty string)
@@ -105,32 +124,37 @@ public class StartGame extends MiddleStartGame {
 		startgame.writeBytes(PEBlocks.getPocketRuntimeDefinition());
 		StringSerializer.writeString(startgame, version, ""); //Multiplayer correlation id.
 		packets.add(startgame);
+
 		//Player metadata and settings update, so it won't behave strangely until metadata update is sent by server
 		packets.add(PEAdventureSettings.createPacket(cache));
 		packets.add(EntityMetadata.createFaux(player, cache.getAttributesCache().getLocale(), version));
-		//Can now switch to game state
-		packets.add(LoginSuccess.createPlayStatus(LoginSuccess.PLAYER_SPAWN));
+
 		//Send chunk radius update without waiting for request, works anyway
 		//PE uses circle to calculate visible chunks, so the view distance should cover all chunks that are sent by server (pc square should fit into pe circle)
 		ClientBoundPacketData chunkradius = ClientBoundPacketData.create(PEPacketIDs.CHUNK_RADIUS);
 		VarNumberSerializer.writeSVarInt(chunkradius, (int) Math.ceil((Bukkit.getViewDistance() + 1) * Math.sqrt(2)));
 		packets.add(chunkradius);
-		//Send all creative items (from PE json)
+
+		packets.add(Chunk.createChunkPublisherUpdate(0, 0, 0));
+		Chunk.addFakeChunks(packets, new ChunkCoord(0, 0));
+
 		PECreativeInventory peInv = PECreativeInventory.getInstance();
 		ClientBoundPacketData creativeInventoryPacket = ClientBoundPacketData.create(PEPacketIDs.INVENTORY_CONTENT);
 		VarNumberSerializer.writeVarInt(creativeInventoryPacket, PESource.POCKET_CREATIVE_INVENTORY);
 		VarNumberSerializer.writeVarInt(creativeInventoryPacket, peInv.getItemCount());
 		creativeInventoryPacket.writeBytes(peInv.getCreativeItems());
 		packets.add(creativeInventoryPacket);
-		//Set PE gamemode.
-		AttributesCache attrscache = cache.getAttributesCache();
-		attrscache.setPEGameMode(gamemode);
-		//Disable player mobility for right now
-		cache.getMovementCache().setClientImmobile(true);
-		packets.add(EntityMetadata.updatePlayerMobility(connection));
-		//Lock client bound packet queue until LocalPlayerInitialised or bungee confirm.
-		packets.add(CustomPayload.create(version, InternalPluginMessageRequest.PELockChannel));
+
+		packets.add(LoginSuccess.createPlayStatus(LoginSuccess.PLAYER_SPAWN));
+
 		return packets;
+	}
+
+	@Override
+	public boolean postFromServerRead() {
+		super.postFromServerRead();
+		cache.getAttributesCache().setPEGameMode(gamemode);
+		return true;
 	}
 
 }

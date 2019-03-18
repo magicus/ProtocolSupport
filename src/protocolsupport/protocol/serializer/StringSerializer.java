@@ -4,10 +4,13 @@ import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 
 import io.netty.buffer.ByteBuf;
-import protocolsupport.api.ProtocolType;
 import protocolsupport.api.ProtocolVersion;
 
 public class StringSerializer {
+
+	public static String readVarIntUTF8String(ByteBuf from) {
+		return new String(MiscSerializer.readBytes(from,  VarNumberSerializer.readVarInt(from)), StandardCharsets.UTF_8);
+	}
 
 	public static String readString(ByteBuf from, ProtocolVersion version) {
 		return readString(from, version, Short.MAX_VALUE);
@@ -25,6 +28,12 @@ public class StringSerializer {
 		} else {
 			throw new IllegalArgumentException(MessageFormat.format("Dont know how to read string of version {0}", version));
 		}
+	}
+
+	public static void writeVarIntUTF8String(ByteBuf to, String string) {
+		byte[] data = string.getBytes(StandardCharsets.UTF_8);
+		VarNumberSerializer.writeVarInt(to, data.length);
+		to.writeBytes(data);
 	}
 
 	public static void writeString(ByteBuf to, ProtocolVersion version, String string) {

@@ -1,13 +1,14 @@
 package protocolsupport.protocol.typeremapper.legacy;
 
-import protocolsupport.api.ProtocolVersion;
 import protocolsupport.protocol.typeremapper.utils.RemappingRegistry.IdRemappingRegistry;
 import protocolsupport.protocol.typeremapper.utils.RemappingTable.HashMapBasedIdRemappingTable;
 import protocolsupport.protocol.utils.ProtocolVersionsHelper;
+import protocolsupportbuildprocessor.Preload;
 
+@Preload
 public class LegacyEffect {
 
-	private static final IdRemappingRegistry<HashMapBasedIdRemappingTable> effect = new IdRemappingRegistry<HashMapBasedIdRemappingTable>() {
+	public static final IdRemappingRegistry<HashMapBasedIdRemappingTable> REGISTRY = new IdRemappingRegistry<HashMapBasedIdRemappingTable>() {
 		{
 			registerRemapEntry(1003, 1002, ProtocolVersionsHelper.BEFORE_1_9);
 			registerRemapEntry(1004, 1002, ProtocolVersionsHelper.BEFORE_1_9);
@@ -46,9 +47,5 @@ public class LegacyEffect {
 			return new HashMapBasedIdRemappingTable();
 		}
 	};
-
-	public static int getLegacyId(ProtocolVersion version, int id) {
-		return effect.getTable(version).getRemap(id);
-	}
 
 }

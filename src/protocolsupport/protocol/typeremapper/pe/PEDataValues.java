@@ -7,6 +7,7 @@ import java.util.Map;
 import com.google.gson.annotations.SerializedName;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.bukkit.Particle;
 import org.bukkit.block.Biome;
 import org.bukkit.enchantments.Enchantment;
@@ -17,7 +18,6 @@ import com.google.gson.JsonParser;
 
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import protocolsupport.api.ProtocolVersion;
-import protocolsupport.protocol.typeremapper.legacy.LegacyEnchantmentId;
 import protocolsupport.protocol.typeremapper.utils.RemappingRegistry.IdRemappingRegistry;
 import protocolsupport.protocol.typeremapper.utils.RemappingTable.ArrayBasedIdRemappingTable;
 import protocolsupport.protocol.typeremapper.utils.RemappingTable.HashMapBasedIdRemappingTable;
@@ -25,8 +25,11 @@ import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 import protocolsupport.protocol.utils.networkentity.NetworkEntityType;
 import protocolsupport.protocol.utils.types.WindowType;
 import protocolsupport.protocol.utils.types.nbt.NBTCompound;
+import protocolsupport.utils.ResourceUtils;
 import protocolsupport.utils.Utils;
+import protocolsupportbuildprocessor.Preload;
 
+@Preload
 public class PEDataValues {
 
 	public static String getResourcePath(String name) {
@@ -34,7 +37,7 @@ public class PEDataValues {
 	}
 
 	public static BufferedReader getResource(String name) {
-		return Utils.getResourceBuffered(getResourcePath(name));
+		return ResourceUtils.getAsBufferedReader(getResourcePath(name));
 	}
 
 	private static JsonObject getFileObject(String name) {
@@ -193,20 +196,24 @@ public class PEDataValues {
 		return key;
 	}
 
-	private static final Int2IntOpenHashMap pcEnchantToPe = new Int2IntOpenHashMap();
-	private static final Int2IntOpenHashMap peEnchantToPc = new Int2IntOpenHashMap();
+	private static final Object2IntOpenHashMap<String> pcEnchantToPe = new Object2IntOpenHashMap<>();
+	private static final Int2ObjectOpenHashMap<String> peEnchantToPc = new Int2ObjectOpenHashMap<>();
 
 	private static void registerEnchantRemap(Enchantment enchantment, int peId) {
-		pcEnchantToPe.put(LegacyEnchantmentId.getId(enchantment), peId);
-		peEnchantToPc.put(peId, LegacyEnchantmentId.getId(enchantment));
+		pcEnchantToPe.put(enchantment.getKey().toString(), peId);
+		peEnchantToPc.put(peId, enchantment.getKey().toString());
 	}
 
 	static {
-		registerEnchantRemap(Enchantment.OXYGEN, 6);
-		registerEnchantRemap(Enchantment.WATER_WORKER, 8);
+		registerEnchantRemap(Enchantment.PROTECTION_ENVIRONMENTAL, 0);
+		registerEnchantRemap(Enchantment.PROTECTION_FIRE, 1);
+		registerEnchantRemap(Enchantment.PROTECTION_FALL, 2);
+		registerEnchantRemap(Enchantment.PROTECTION_EXPLOSIONS, 3);
+		registerEnchantRemap(Enchantment.PROTECTION_PROJECTILE, 4);
 		registerEnchantRemap(Enchantment.THORNS, 5);
+		registerEnchantRemap(Enchantment.OXYGEN, 6);
 		registerEnchantRemap(Enchantment.DEPTH_STRIDER, 7);
-		registerEnchantRemap(Enchantment.FROST_WALKER, 25);
+		registerEnchantRemap(Enchantment.WATER_WORKER, 8);
 		registerEnchantRemap(Enchantment.DAMAGE_ALL, 9);
 		registerEnchantRemap(Enchantment.DAMAGE_UNDEAD, 10);
 		registerEnchantRemap(Enchantment.DAMAGE_ARTHROPODS, 11);
@@ -223,14 +230,21 @@ public class PEDataValues {
 		registerEnchantRemap(Enchantment.ARROW_INFINITE, 22);
 		registerEnchantRemap(Enchantment.LUCK, 23);
 		registerEnchantRemap(Enchantment.LURE, 24);
+		registerEnchantRemap(Enchantment.FROST_WALKER, 25);
 		registerEnchantRemap(Enchantment.MENDING, 26);
+		registerEnchantRemap(Enchantment.BINDING_CURSE, 27);
+		registerEnchantRemap(Enchantment.VANISHING_CURSE, 28);
+		registerEnchantRemap(Enchantment.IMPALING, 29);
+		registerEnchantRemap(Enchantment.RIPTIDE, 30);
+		registerEnchantRemap(Enchantment.LOYALTY, 31);
+		registerEnchantRemap(Enchantment.CHANNELING, 32);
 	}
 
-	public static int pcToPeEnchant(int pcId) {
-		return pcEnchantToPe.get(pcId);
+	public static int pcToPeEnchant(String pcKey) {
+		return pcEnchantToPe.getInt(pcKey);
 	}
 
-	public static int peToPcEnchant(int peId) {
+	public static String peToPcEnchant(int peId) {
 		return peEnchantToPc.get(peId);
 	}
 
@@ -341,7 +355,7 @@ public class PEDataValues {
 		}
 	};
 
-	private static EnumMap<NetworkEntityType, Int2IntOpenHashMap> entityStatusRemaps = new EnumMap<>(NetworkEntityType.class);
+	private static final EnumMap<NetworkEntityType, Int2IntOpenHashMap> entityStatusRemaps = new EnumMap<>(NetworkEntityType.class);
 
 	private static void registerEntityStatusRemap(int pcStatus, int peStatus, NetworkEntityType... entityTypes) {
 		for (NetworkEntityType entityType : entityTypes) {
@@ -356,6 +370,9 @@ public class PEDataValues {
 
 	private static void initEntityStatusRemaps() {
 		registerEntityStatusRemap(2, 2); // HURT_ANIMATION
+		registerEntityStatusRemap(33, 2); // ENTITY_HURT_THORNS
+		registerEntityStatusRemap(36, 2); // ENTITY_HURT_DROWN
+		registerEntityStatusRemap(37, 2); // ENTITY_HURT_BURN
 		registerEntityStatusRemap(3, -1, NetworkEntityType.SNOWBALL); // SNOWBALL_POOF
 		registerEntityStatusRemap(3, -1, NetworkEntityType.EGG); // EGG_ICONCRACK
 		registerEntityStatusRemap(3, 3); // DEATH_ANIMATION
@@ -364,6 +381,7 @@ public class PEDataValues {
 		registerEntityStatusRemap(8, 8); // SHAKE_WET
 		registerEntityStatusRemap(9, 9); // USE_ITEM
 		registerEntityStatusRemap(10, 10, NetworkEntityType.SHEEP); // EAT_GRASS_ANIMATION
+		registerEntityStatusRemap(10, 10, NetworkEntityType.COMMON_HORSE); // EAT_GRASS_ANIMATION
 		registerEntityStatusRemap(10, 10, NetworkEntityType.MINECART_TNT); // MINECART_TNT_PRIME_FUSE
 		registerEntityStatusRemap(11, 19); // IRON_GOLEM_OFFER_FLOWER
 		registerEntityStatusRemap(15, 24); // WITCH_SPELL_PARTICLES
@@ -398,9 +416,6 @@ public class PEDataValues {
 		SHIELD_BLOCK = 29;
 		SHIELD_BREAK = 30;
 		ARMOR_STAND_HIT = 32;
-		ENTITY_HURT_THORNS = 33;
-		ENTITY_HURT_DROWN = 36;
-		ENTITY_HURT_BURN = 37;
 
 		TODO: List of known PE entity status codes that are never sent. Presumably,
 		some PE functionality is missing because of this.
@@ -417,7 +432,6 @@ public class PEDataValues {
 		ENDER_DRAGON_DEATH = 37;
 		DUST_PARTICLES = 38;
 		ARROW_SHAKE = 39;
-		EATING_ITEM = 57;
 		BABY_ANIMAL_FEED = 60;
 		DEATH_SMOKE_CLOUD = 61;
 		COMPLETE_TRADE = 62;
@@ -426,6 +440,11 @@ public class PEDataValues {
 		DRAGON_PUKE = 68;
 		ITEM_ENTITY_MERGE = 69;
 		*/
+
+		/*
+		sent elsewhere
+		EATING_ITEM = 57; sent in Animation
+		 */
 	}
 
 	static {
@@ -440,8 +459,8 @@ public class PEDataValues {
 		return entityStatusRemaps.get(entityType).getOrDefault(pcStatus, -1);
 	}
 
-	private final static Map<NetworkEntityType, PEEntityData> entityData = new EnumMap<NetworkEntityType, PEEntityData>(NetworkEntityType.class);
-	private final static Map<NetworkEntityType, PEEntityInventoryData> entityInventoryData = new EnumMap<NetworkEntityType, PEEntityInventoryData>(NetworkEntityType.class);
+	private final static Map<NetworkEntityType, PEEntityData> entityData = new EnumMap<>(NetworkEntityType.class);
+	private final static Map<NetworkEntityType, PEEntityInventoryData> entityInventoryData = new EnumMap<>(NetworkEntityType.class);
 
 	static {
 		getFileObject("entitydata.json").entrySet().forEach(entry -> {

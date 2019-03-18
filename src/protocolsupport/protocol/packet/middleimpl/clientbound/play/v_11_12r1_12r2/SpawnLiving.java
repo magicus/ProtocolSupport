@@ -1,6 +1,5 @@
 package protocolsupport.protocol.packet.middleimpl.clientbound.play.v_11_12r1_12r2;
 
-import protocolsupport.api.ProtocolVersion;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.ClientBoundPacket;
 import protocolsupport.protocol.packet.middle.clientbound.play.MiddleSpawnLiving;
@@ -20,17 +19,16 @@ public class SpawnLiving extends MiddleSpawnLiving {
 
 	@Override
 	public RecyclableCollection<ClientBoundPacketData> toData() {
-		ProtocolVersion version = connection.getVersion();
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(ClientBoundPacket.PLAY_SPAWN_LIVING_ID);
 		VarNumberSerializer.writeVarInt(serializer, entity.getId());
 		MiscSerializer.writeUUID(serializer, entity.getUUID());
-		VarNumberSerializer.writeVarInt(serializer, LegacyEntityId.getLegacyId(entityRemapper.getRemappedEntityType()));
+		VarNumberSerializer.writeVarInt(serializer, LegacyEntityId.getIntId(entityRemapper.getRemappedEntityType()));
 		serializer.writeDouble(x);
 		serializer.writeDouble(y);
 		serializer.writeDouble(z);
 		serializer.writeByte(yaw);
 		serializer.writeByte(pitch);
-		serializer.writeByte(headPitch);
+		serializer.writeByte(headYaw);
 		serializer.writeShort(motX);
 		serializer.writeShort(motY);
 		serializer.writeShort(motZ);

@@ -10,7 +10,7 @@ import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 import protocolsupport.protocol.utils.datawatcher.DataWatcherObject;
 import protocolsupport.protocol.utils.datawatcher.DataWatcherObjectIdRegistry;
 import protocolsupport.protocol.utils.datawatcher.ReadableDataWatcherObject;
-import protocolsupport.protocol.utils.datawatcher.objects.DataWatcherObjectBlockState;
+import protocolsupport.protocol.utils.datawatcher.objects.DataWatcherObjectBlockData;
 import protocolsupport.protocol.utils.datawatcher.objects.DataWatcherObjectBoolean;
 import protocolsupport.protocol.utils.datawatcher.objects.DataWatcherObjectByte;
 import protocolsupport.protocol.utils.datawatcher.objects.DataWatcherObjectChat;
@@ -49,7 +49,7 @@ public class DataWatcherSerializer {
 		register(DataWatcherObjectOptionalPosition::new);
 		register(DataWatcherObjectDirection::new);
 		register(DataWatcherObjectOptionalUUID::new);
-		register(DataWatcherObjectBlockState::new);
+		register(DataWatcherObjectBlockData::new);
 		register(DataWatcherObjectNBTTagCompound::new);
 		register(DataWatcherObjectParticle::new);
 	}
@@ -58,7 +58,7 @@ public class DataWatcherSerializer {
 		registry[DataWatcherObjectIdRegistry.getTypeId(supplier.get().getClass(), ProtocolVersionsHelper.LATEST_PC)] = supplier;
 	}
 
-	public static void readDataTo(ByteBuf from, ProtocolVersion version, String locale, ArrayMap<DataWatcherObject<?>> to) {
+	public static void readDataTo(ByteBuf from, ArrayMap<DataWatcherObject<?>> to) {
 		do {
 			int key = from.readUnsignedByte();
 			if (key == 0xFF) {
@@ -67,7 +67,7 @@ public class DataWatcherSerializer {
 			int type = from.readUnsignedByte();
 			try {
 				ReadableDataWatcherObject<?> object = registry[type].get();
-				object.readFromStream(from, version, locale);
+				object.readFromStream(from);
 				to.put(key, object);
 			} catch (Exception e) {
 				throw new DecoderException(MessageFormat.format("Unable to decode datawatcher object (type: {0}, index: {1})", type, key), e);

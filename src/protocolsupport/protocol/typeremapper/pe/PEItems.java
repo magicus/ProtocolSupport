@@ -5,12 +5,13 @@ import com.google.gson.JsonObject;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
-import org.bukkit.Material;
 import protocolsupport.protocol.utils.ItemMaterialLookup;
 import protocolsupport.protocol.utils.minecraftdata.MinecraftData;
 import protocolsupport.utils.JsonUtils;
-import protocolsupport.utils.Utils;
+import protocolsupport.utils.ResourceUtils;
+import protocolsupportbuildprocessor.Preload;
 
+@Preload
 public class PEItems {
 
 	protected static final int combinedPEStoneId = formLegacyCombinedId(1, 0);
@@ -35,7 +36,7 @@ public class PEItems {
 	}
 
 	static {
-		for (JsonElement element : Utils.iterateJsonArrayResource(PEDataValues.getResourcePath("itemmapping.json"))) {
+		for (JsonElement element : ResourceUtils.getAsIterableJson(PEDataValues.getResourcePath("itemmapping.json"))) {
 			JsonObject object = element.getAsJsonObject();
 			register(JsonUtils.getString(object, "itemkey"), JsonUtils.getInt(object, "peid"), JsonUtils.getInt(object, "pedata"));
 		}
@@ -53,8 +54,6 @@ public class PEItems {
 		final int result = toPEId[modernId];
 
 		if (result == 0 && modernId != 0) {
-			Material mat = ItemMaterialLookup.getByRuntimeId(modernId);
-			System.out.println("Using default PE ID for material " + mat + ", key: " + mat.getKey());
 			return combinedPEStoneId;
 		}
 
@@ -68,12 +67,15 @@ public class PEItems {
 		if (fromPEId.containsKey(literalId)) {
 			return fromPEId.get(literalId);
 		} else if (fromPEId.containsKey(closestId)) {
-			System.out.println("Using closest guess for PE ID " + PEId + "(ignoring " + PEData + ")");
 			return fromPEId.get(closestId);
 		} else {
-			System.out.println("Using default item for PE ID " + PEId + ":" + PEData);
+			System.err.println("Using default item for PE ID " + PEId + ":" + PEData);
 			return combinedPEStoneId;
 		}
+	}
+
+	public static int getModernIdByPECombined(int PEcombined) {
+		return fromPEId.get(PEcombined);
 	}
 
 }
