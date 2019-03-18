@@ -578,7 +578,6 @@ public class PEDataValues {
 			private transient NBTCompound filterNBT = null;
 
 			protected void init() {
-				System.out.println("Skipping inventory filter because NBT code still needs to be formatted: " + Filter);
 				//TODO GET THIS???
 				//filterNBT = new createNBTCompoundFromJson(Filter.replaceAll("\'", "\""));
 			}

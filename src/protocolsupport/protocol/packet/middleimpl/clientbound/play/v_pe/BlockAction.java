@@ -54,7 +54,6 @@ public class BlockAction extends MiddleBlockAction {
 				break;
 			}
 			default: {
-				System.out.println("CATCH 22 TILEEVENT: " + material + ": " + actionId + ", " + actionParam);
 				break;
 			}
 		}
