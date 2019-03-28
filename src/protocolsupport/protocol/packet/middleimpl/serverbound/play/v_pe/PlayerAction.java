@@ -1,8 +1,10 @@
 package protocolsupport.protocol.packet.middleimpl.serverbound.play.v_pe;
 
+import java.text.MessageFormat;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.buffer.ByteBuf;
+import protocolsupport.ProtocolSupport;
 import protocolsupport.protocol.ConnectionImpl;
 import protocolsupport.protocol.packet.ServerBoundPacket;
 import protocolsupport.protocol.packet.middle.ServerBoundMiddlePacket;
@@ -119,6 +121,7 @@ public class PlayerAction extends ServerBoundMiddlePacket {
 				return RecyclableEmptyList.get();
 			}
 			default: {
+				ProtocolSupport.logInfo(MessageFormat.format("UNHANDLED PE ACTION: {0}", action));
 				return RecyclableEmptyList.get();
 			}
 		}
