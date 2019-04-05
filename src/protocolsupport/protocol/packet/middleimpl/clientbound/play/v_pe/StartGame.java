@@ -138,6 +138,11 @@ public class StartGame extends MiddleStartGame {
 		packets.add(Chunk.createChunkPublisherUpdate(0, 0, 0));
 		Chunk.addFakeChunks(packets, new ChunkCoord(0, 0));
 
+		ClientBoundPacketData enableCommandsPacket = ClientBoundPacketData.create(PEPacketIDs.SET_COMMANDS_ENABLED);
+	//	enableCommandsPacket.writeBoolean(true); // enable commands
+		enableCommandsPacket.writeByte(1);
+		packets.add(enableCommandsPacket);
+
 		PECreativeInventory peInv = PECreativeInventory.getInstance();
 		ClientBoundPacketData creativeInventoryPacket = ClientBoundPacketData.create(PEPacketIDs.INVENTORY_CONTENT);
 		VarNumberSerializer.writeVarInt(creativeInventoryPacket, PESource.POCKET_CREATIVE_INVENTORY);
