@@ -29,6 +29,7 @@ public class PlayerAction extends ServerBoundMiddlePacket {
 	public static final int RELEASE_ITEM = 4;
 	public static final int STOP_SLEEPING = 6;
 	public static final int RESPAWN1 = 7;
+	public static final int JUMP = 8;
 	public static final int START_SPRINT = 9;
 	public static final int STOP_SPRINT = 10;
 	public static final int START_SNEAK = 11;
@@ -122,9 +123,13 @@ public class PlayerAction extends ServerBoundMiddlePacket {
 				return RecyclableSingletonList.create(MiddleEntityAction.create(selfId, MiddleEntityAction.Action.LEAVE_BED, 0));
 			}
 			case START_GLIDE: {
-				return RecyclableSingletonList.create(MiddleEntityAction.create(selfId, MiddleEntityAction.Action.START_ELYTRA_FLY, 0));
+				return RecyclableSingletonList.create(MiddleEntityAction.create(selfId, MiddleEntityAction.Action.STOP_SPRINT, 0));
 			}
-			case DIMENSION_CHANGE_ACK: {
+			case DIMENSION_CHANGE_ACK:
+			case JUMP:
+			case STOP_GLIDE:
+			case CONTINUE_BREAK: {
+				// Known actions that are safe to ignore
 				return RecyclableEmptyList.get();
 			}
 			default: {
