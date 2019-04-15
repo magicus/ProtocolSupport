@@ -1,19 +1,15 @@
 package protocolsupport.protocol.packet.middleimpl.clientbound.play.v_pe;
 
 import io.netty.buffer.ByteBuf;
-import protocolsupport.api.ProtocolVersion;
 import protocolsupport.protocol.ConnectionImpl;
-import protocolsupport.protocol.packet.ClientBoundPacket;
 import protocolsupport.protocol.packet.middle.clientbound.play.MiddleDeclareCommands;
 import protocolsupport.protocol.packet.middleimpl.ClientBoundPacketData;
 import protocolsupport.protocol.serializer.ArraySerializer;
-import protocolsupport.protocol.serializer.MiscSerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
 import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 import protocolsupport.utils.recyclable.RecyclableCollection;
-import protocolsupport.utils.recyclable.RecyclableEmptyList;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
 
 public class DeclareCommands extends MiddleDeclareCommands {
@@ -22,6 +18,9 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	private static final byte FLAG_IS_ARGUMENT = 2;
 	private static final byte FLAG_HAS_REDIRECT = 8;
 	private static final byte FLAG_HAS_SUGGESTION = 16;
+
+	int numRealCommands = 0;
+	String[] realCommands = null;
 
 	public DeclareCommands(ConnectionImpl connection) {
 		super(connection);
@@ -40,18 +39,28 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			if ((flags & FLAG_HAS_REDIRECT) != 0) {
 				redirect = VarNumberSerializer.readVarInt(from);
 			}
-			System.out.println("cmd #" + i + " flags " + flags + " redirect: " + redirect);
+			System.out.println("CMD #" + i + " flags " + flags + " redirect: " + redirect);
+			System.out.println("cmdPositions: ");
+			for (int pos = 0; pos < cmdPositions.length; pos++) {
+				System.out.println("pos " + pos + " cmd value " +cmdPositions[pos]);
+			}
+			if (i == 0) {
+				numRealCommands = cmdPositions.length;
+				realCommands = new String[numRealCommands];
+			}
 			if ((flags & FLAG_IS_LITERAL) != 0) {
 				String literal = StringSerializer.readString(from, ProtocolVersionsHelper.LATEST_PC);
 				System.out.println("got LITERAL, name:" + literal);
+				if (i > 0 && i <= numRealCommands) {
+					realCommands[i-1] = literal;
+
+				}
 
 			} else if ((flags & FLAG_IS_ARGUMENT) != 0) {
 				String name = StringSerializer.readVarIntUTF8String(from);
 				String argType = StringSerializer.readVarIntUTF8String(from);
 				// now read different stuff depending on argType. *sigh*
 
-//				ByteBuf data;
-//				data = MiscSerializer.readAllBytesSlice(from);
 
 				System.out.println("got ARG, name: " + name + ", type: " + argType );
 
@@ -59,9 +68,6 @@ public class DeclareCommands extends MiddleDeclareCommands {
 					// for string, this is most likely a varint specifying type enum:...?
 					int stringType = VarNumberSerializer.readVarInt(from);
 					System.out.println("BRIG-STRING: data" + stringType);
-				} else if (argType.equals("minecraft:entity")) {
-					byte flag = from.readByte();
-					System.out.println("ENTITY: flag:" + flag);
 				} else if (argType.equals("brigadier:integer")) {
 					byte flag = from.readByte();
 					int min = -2147483648;
@@ -104,36 +110,22 @@ public class DeclareCommands extends MiddleDeclareCommands {
 					}
 
 					System.out.println("DOUBLE: flag:" + flag + " min" + min + " max " + max);
+				} else if (argType.equals("minecraft:entity")) {
+					byte flag = from.readByte();
+					System.out.println("ENTITY: flag:" + flag);
+				} else if (argType.equals("minecraft:score_holder")) {
+					byte multiple = from.readByte();
+					System.out.println("score_holder: multiple:" + multiple);
+					// read byte, for boolean. if true multiple otherwise single.
 				} else if (argType.equals("minecraft:block_pos")) {
 					// void
 					System.out.println("block_pos: void:");
 				} else if (argType.equals("minecraft:game_profile")) {
 					// void
 					System.out.println("game_profile: void:");
-				} else if (argType.equals("minecraft:score_holder")) {
-					byte multiple = from.readByte();
-					System.out.println("score_holder: multiple:" + multiple);
-					// read byte, for boolean. if true multiple otherwise single.
-					// NOT DONE
-//					System.out.println("score_holder: BREAKING NOW");
-/*
-					ByteBuf data;
-					data = MiscSerializer.readAllBytesSlice(from);
-					return;
-					*/
 				} else {
 					System.out.println("UNHANDLED TYHPE: " + argType);
 				}
-
-				/* minecraft:
-				// DUMP HEX
-				byte[] bytes = new byte[19853];
-				from.getBytes(0, bytes);
-				System.out.println(bytes);
-				System.out.println("as hex:");
-				System.out.println(bytesToHex(bytes));
-				return;
-				 */
 
 				String suggestion = "";
 				if ((flags & FLAG_HAS_SUGGESTION) != 0) {
@@ -148,7 +140,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		// write VarInt, the position of the rootCommandNode in the array.
 		int rootNodeIndex = VarNumberSerializer.readVarInt(from);
 
-		System.out.println("READ DECLARE FROM SERVER");
+		System.out.println("READ DECLARE FROM SERVER. root node:" + rootNodeIndex);
 	}
 
 	private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
@@ -162,7 +154,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		return new String(hexChars);
 	}
 
-	public static ClientBoundPacketData create() {
+	public ClientBoundPacketData create() {
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.TAB_COMPLETE);
 		// Write enumValues, a way to number strings
 		// size
@@ -187,28 +179,20 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		// Write commandData
 		// size
 		System.out.println("HELLO + WORLD");
-		VarNumberSerializer.writeVarInt(serializer, 2);
-		StringSerializer.writeVarIntUTF8String(serializer, "hello");
-		StringSerializer.writeVarIntUTF8String(serializer, "writes hello");
-		serializer.writeByte(0);
-		serializer.writeByte(0);
+		VarNumberSerializer.writeVarInt(serializer, numRealCommands);
+		for (int i = 0; i < numRealCommands; i++) {
+			System.out.println("generating data for " + realCommands[i]);
+			StringSerializer.writeVarIntUTF8String(serializer, realCommands[i]);
+			StringSerializer.writeVarIntUTF8String(serializer, "No desc");
+			serializer.writeByte(0);
+			serializer.writeByte(0);
 
-		serializer.writeIntLE(-1); // alias
+			serializer.writeIntLE(-1); // alias
 
-		// always has one overload.
-		VarNumberSerializer.writeVarInt(serializer, 1);
-		VarNumberSerializer.writeVarInt(serializer, 0); // no parameters
-
-		StringSerializer.writeVarIntUTF8String(serializer, "world");
-		StringSerializer.writeVarIntUTF8String(serializer, "writes YOU");
-		serializer.writeByte(0);
-		serializer.writeByte(0);
-
-		serializer.writeIntLE(-1); // alias
-
-		// always has one overload.
-		VarNumberSerializer.writeVarInt(serializer, 1);
-		VarNumberSerializer.writeVarInt(serializer, 0); // no parameters
+			// always has one overload.
+			VarNumberSerializer.writeVarInt(serializer, 1);
+			VarNumberSerializer.writeVarInt(serializer, 0); // no parameters
+		}
 
 		// For each commandData, a complex structure
 		// String : name
