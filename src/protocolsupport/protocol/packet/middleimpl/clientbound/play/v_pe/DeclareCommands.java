@@ -76,6 +76,34 @@ public class DeclareCommands extends MiddleDeclareCommands {
 					}
 
 					System.out.println("INTEGER: flag:" + flag + " min" + min + " max " + max);
+				} else if (argType.equals("brigadier:float")) {
+					byte flag = from.readByte();
+					float min = -3.4028235E38F;
+					float max = 3.4028235E38F;
+					if ((flag & 1) != 0) {
+						// read min value
+						min = from.readFloat();
+					}
+					if ((flag & 2) != 0) {
+						// read max value
+						max = from.readFloat();
+					}
+
+					System.out.println("FLOAT: flag:" + flag + " min" + min + " max " + max);
+				} else if (argType.equals("brigadier:double")) {
+					byte flag = from.readByte();
+					double min = -3.4028235E38F;
+					double max = 3.4028235E38F;
+					if ((flag & 1) != 0) {
+						// read min value
+						min = from.readDouble();
+					}
+					if ((flag & 2) != 0) {
+						// read max value
+						max = from.readDouble();
+					}
+
+					System.out.println("DOUBLE: flag:" + flag + " min" + min + " max " + max);
 				} else if (argType.equals("minecraft:block_pos")) {
 					// void
 					System.out.println("block_pos: void:");
@@ -83,12 +111,16 @@ public class DeclareCommands extends MiddleDeclareCommands {
 					// void
 					System.out.println("game_profile: void:");
 				} else if (argType.equals("minecraft:score_holder")) {
+					byte multiple = from.readByte();
+					System.out.println("score_holder: multiple:" + multiple);
+					// read byte, for boolean. if true multiple otherwise single.
 					// NOT DONE
-					System.out.println("score_holder: BREAKING NOW");
-
+//					System.out.println("score_holder: BREAKING NOW");
+/*
 					ByteBuf data;
 					data = MiscSerializer.readAllBytesSlice(from);
 					return;
+					*/
 				} else {
 					System.out.println("UNHANDLED TYHPE: " + argType);
 				}
@@ -112,6 +144,10 @@ public class DeclareCommands extends MiddleDeclareCommands {
 				System.out.println("got ARG, name: " + name + ", type: " + argType + ", suggest:" + suggestion);
 			}
 		}
+
+		// write VarInt, the position of the rootCommandNode in the array.
+		int rootNodeIndex = VarNumberSerializer.readVarInt(from);
+
 		System.out.println("READ DECLARE FROM SERVER");
 	}
 
@@ -453,6 +489,11 @@ BASIC TYPES!!!
 
 
         a(new MinecraftKey("minecraft:entity"), ArgumentEntity.class, new net.minecraft.server.v1_13_R2.ArgumentEntity.a());
+        a(new MinecraftKey("minecraft:score_holder"), ArgumentScoreholder.class, new c());
+        a(new MinecraftKey("minecraft:int_range"), b.class, new net.minecraft.server.v1_13_R2.ArgumentCriterionValue.b.a());
+        a(new MinecraftKey("minecraft:float_range"), net.minecraft.server.v1_13_R2.ArgumentCriterionValue.a.class, new net.minecraft.server.v1_13_R2.ArgumentCriterionValue.a.a());
+
+
         a(new MinecraftKey("minecraft:game_profile"), ArgumentProfile.class, new ArgumentSerializerVoid(ArgumentProfile::a));
         a(new MinecraftKey("minecraft:block_pos"), ArgumentPosition.class, new ArgumentSerializerVoid(ArgumentPosition::a));
         a(new MinecraftKey("minecraft:column_pos"), ArgumentVec2I.class, new ArgumentSerializerVoid(ArgumentVec2I::a));
@@ -473,7 +514,6 @@ BASIC TYPES!!!
         a(new MinecraftKey("minecraft:particle"), ArgumentParticle.class, new ArgumentSerializerVoid(ArgumentParticle::a));
         a(new MinecraftKey("minecraft:rotation"), ArgumentRotation.class, new ArgumentSerializerVoid(ArgumentRotation::a));
         a(new MinecraftKey("minecraft:scoreboard_slot"), ArgumentScoreboardSlot.class, new ArgumentSerializerVoid(ArgumentScoreboardSlot::a));
-        a(new MinecraftKey("minecraft:score_holder"), ArgumentScoreholder.class, new c());
         a(new MinecraftKey("minecraft:swizzle"), ArgumentRotationAxis.class, new ArgumentSerializerVoid(ArgumentRotationAxis::a));
         a(new MinecraftKey("minecraft:team"), ArgumentScoreboardTeam.class, new ArgumentSerializerVoid(ArgumentScoreboardTeam::a));
         a(new MinecraftKey("minecraft:item_slot"), ArgumentInventorySlot.class, new ArgumentSerializerVoid(ArgumentInventorySlot::a));
@@ -481,8 +521,6 @@ BASIC TYPES!!!
         a(new MinecraftKey("minecraft:mob_effect"), ArgumentMobEffect.class, new ArgumentSerializerVoid(ArgumentMobEffect::a));
         a(new MinecraftKey("minecraft:function"), ArgumentTag.class, new ArgumentSerializerVoid(ArgumentTag::a));
         a(new MinecraftKey("minecraft:entity_anchor"), ArgumentAnchor.class, new ArgumentSerializerVoid(ArgumentAnchor::a));
-        a(new MinecraftKey("minecraft:int_range"), b.class, new net.minecraft.server.v1_13_R2.ArgumentCriterionValue.b.a());
-        a(new MinecraftKey("minecraft:float_range"), net.minecraft.server.v1_13_R2.ArgumentCriterionValue.a.class, new net.minecraft.server.v1_13_R2.ArgumentCriterionValue.a.a());
         a(new MinecraftKey("minecraft:item_enchantment"), ArgumentEnchantment.class, new ArgumentSerializerVoid(ArgumentEnchantment::a));
         a(new MinecraftKey("minecraft:entity_summon"), ArgumentEntitySummon.class, new ArgumentSerializerVoid(ArgumentEntitySummon::a));
         a(new MinecraftKey("minecraft:dimension"), ArgumentDimension.class, new ArgumentSerializerVoid(ArgumentDimension::a));
