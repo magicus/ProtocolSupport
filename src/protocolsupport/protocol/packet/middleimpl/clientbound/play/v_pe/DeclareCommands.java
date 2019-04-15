@@ -9,6 +9,7 @@ import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
 import protocolsupport.protocol.utils.ProtocolVersionsHelper;
+import protocolsupport.utils.Utils;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
 
@@ -26,39 +27,63 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		super(connection);
 	}
 
+	public static class CommandNode {
+		private String name;
+		private int[] children;
+		private boolean isLiteral;
+		private String type;
+
+		public CommandNode(String name, int[] children, boolean isLiteral, String type) {
+			this.name = name;
+			this.children = children;
+			this.isLiteral = isLiteral;
+			this.type = type;
+		}
+
+		@Override
+		public String toString() {
+			return Utils.toStringAllFields(this);
+		}
+	}
+
 	@Override
 	public void readFromServerData(ByteBuf from) {
 		//super.readFromServerData(serverdata);
 		int length = VarNumberSerializer.readVarInt(from);
 
 		System.out.println("array positions: " + length);
+		CommandNode[] allNodes = new CommandNode[length];
 		for (int i = 0; i < length; i++) {
 			byte flags = from.readByte();
 			int redirect = -1;
-			int[] cmdPositions = ArraySerializer.readVarIntVarIntArray(from);
+			int[] children = ArraySerializer.readVarIntVarIntArray(from).clone();
 			if ((flags & FLAG_HAS_REDIRECT) != 0) {
 				redirect = VarNumberSerializer.readVarInt(from);
 			}
 			System.out.println("CMD #" + i + " flags " + flags + " redirect: " + redirect);
 			System.out.println("cmdPositions: ");
-			for (int pos = 0; pos < cmdPositions.length; pos++) {
-				System.out.println("pos " + pos + " cmd value " +cmdPositions[pos]);
+			for (int pos = 0; pos < children.length; pos++) {
+				System.out.println("pos " + pos + " cmd value " +children[pos]);
 			}
 			if (i == 0) {
-				numRealCommands = cmdPositions.length;
-				realCommands = new String[numRealCommands];
+		//		numRealCommands = children.length;
+		//		realCommands = new String[numRealCommands];
 			}
+			String name = "";
+			String argType = "";
+			boolean isLiteral = false;
 			if ((flags & FLAG_IS_LITERAL) != 0) {
-				String literal = StringSerializer.readString(from, ProtocolVersionsHelper.LATEST_PC);
-				System.out.println("got LITERAL, name:" + literal);
+				name = StringSerializer.readString(from, ProtocolVersionsHelper.LATEST_PC);
+				isLiteral = true;
+				System.out.println("got LITERAL, name:" + name);
 				if (i > 0 && i <= numRealCommands) {
-					realCommands[i-1] = literal;
+				//	realCommands[i-1] = name;
 
 				}
 
 			} else if ((flags & FLAG_IS_ARGUMENT) != 0) {
-				String name = StringSerializer.readVarIntUTF8String(from);
-				String argType = StringSerializer.readVarIntUTF8String(from);
+				name = StringSerializer.readVarIntUTF8String(from);
+				argType = StringSerializer.readVarIntUTF8String(from);
 				// now read different stuff depending on argType. *sigh*
 
 
@@ -133,12 +158,29 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 
 				}
+
 				System.out.println("got ARG, name: " + name + ", type: " + argType + ", suggest:" + suggestion);
 			}
+			CommandNode node = new CommandNode(name, children, isLiteral, argType);
+			System.out.println("created " + node);
+			allNodes[i] = node;
 		}
 
 		// write VarInt, the position of the rootCommandNode in the array.
 		int rootNodeIndex = VarNumberSerializer.readVarInt(from);
+		numRealCommands = allNodes[rootNodeIndex].children.length;
+		realCommands = new String[numRealCommands];
+		for (int i = 0; i < numRealCommands; i++) {
+			int childPos = allNodes[rootNodeIndex].children[i];
+			realCommands[i] = allNodes[childPos].name;
+		}
+/*
+		for (int i = 0; i < numRealCommands; i++) {
+			int childPos = allNodes[rootNodeIndex].children[i];
+			 allNodes[childPos].children;
+		}
+*/
+
 
 		System.out.println("READ DECLARE FROM SERVER. root node:" + rootNodeIndex);
 	}
