@@ -8,7 +8,6 @@ import protocolsupport.protocol.serializer.ArraySerializer;
 import protocolsupport.protocol.serializer.StringSerializer;
 import protocolsupport.protocol.serializer.VarNumberSerializer;
 import protocolsupport.protocol.typeremapper.pe.PEPacketIDs;
-import protocolsupport.protocol.utils.ProtocolVersionsHelper;
 import protocolsupport.utils.Utils;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
@@ -31,8 +30,8 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	private static final byte FLAG_ENTITY_AMOUNT_IS_SINGLE = 1;
 	private static final byte FLAG_ENTITY_TYPE_IS_PLAYER = 2;
 
-	int numRealCommands = 0;
-	String[] realCommands = null;
+	private CommandNode[] allNodes;
+	private int rootNodeIndex;
 
 	public DeclareCommands(ConnectionImpl connection) {
 		super(connection);
@@ -65,108 +64,125 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	public void readFromServerData(ByteBuf from) {
 		int length = VarNumberSerializer.readVarInt(from);
 
-		CommandNode[] allNodes = new CommandNode[length];
+		allNodes = new CommandNode[length];
 		for (int i = 0; i < length; i++) {
-			byte flags = from.readByte();
-			boolean isPathEnd;
-			int redirect = -1;
-			int[] children = ArraySerializer.readVarIntVarIntArray(from).clone();
-			if ((flags & FLAG_HAS_REDIRECT) != 0) {
-				redirect = VarNumberSerializer.readVarInt(from);
-			}
-			String name;
-			String argType;
-			String suggestion;
-
-			isPathEnd = ((flags & FLAG_IS_COMMAND_PATH_END) != 0);
-
-			if ((flags & FLAG_IS_LITERAL) != 0) {
-				name = StringSerializer.readString(from, ProtocolVersionsHelper.LATEST_PC);
-				argType = null; // no argType signals this is a literal
-				suggestion = null;
-			} else if ((flags & FLAG_IS_ARGUMENT) != 0) {
-				name = StringSerializer.readVarIntUTF8String(from);
-				argType = StringSerializer.readVarIntUTF8String(from);
-				// Depending on argType, there might be additional data.
-
-				if (argType.equals("brigadier:string")) {
-					// Determine kind of string, any of STRING_IS_*...
-					int stringType = VarNumberSerializer.readVarInt(from);
-				} else if (argType.equals("brigadier:integer")) {
-					byte flag = from.readByte();
-					int min = -2147483648;
-					int max = 2147483647;
-					if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
-						min = from.readInt();
-					}
-					if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
-						max = from.readInt();
-					}
-				} else if (argType.equals("brigadier:float")) {
-					byte flag = from.readByte();
-					float min = -3.4028235E38F;
-					float max = 3.4028235E38F;
-					if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
-						min = from.readFloat();
-					}
-					if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
-						max = from.readFloat();
-					}
-				} else if (argType.equals("brigadier:double")) {
-					byte flag = from.readByte();
-					double min = -3.4028235E38F;
-					double max = 3.4028235E38F;
-					if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
-						min = from.readDouble();
-					}
-					if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
-						max = from.readDouble();
-					}
-				} else if (argType.equals("minecraft:entity")) {
-					// The flag determines the amount (single or double) and type (players or entities)
-					// See FLAG_ENTITY_AMOUNT_IS_SINGLE and FLAG_ENTITY_TYPE_IS_PLAYER.
-					byte flag = from.readByte();
-				} else if (argType.equals("minecraft:score_holder")) {
-					// The "multiple" boolean is true if multiple, false if single.
-					byte multiple = from.readByte();
-				} else {
-					// For all other types, there is no additional data
-				}
-
-				if ((flags & FLAG_HAS_SUGGESTION) != 0) {
-					suggestion = StringSerializer.readVarIntUTF8String(from);
-				} else {
-					suggestion = null;
-				}
-			} else {
-				// This is only allowed for the root node
-				name = null;
-				argType = null;
-				suggestion = null;
-			}
-			CommandNode node = new CommandNode(name, argType, suggestion, children, redirect, isPathEnd);
+			CommandNode node = readCommandNode(from);
 			allNodes[i] = node;
 		}
 
-		int rootNodeIndex = VarNumberSerializer.readVarInt(from);
+		rootNodeIndex = VarNumberSerializer.readVarInt(from);
 
 		// Now reading data is done. Parse into tree, if needed.
-
-		numRealCommands = allNodes[rootNodeIndex].children.length;
-		realCommands = new String[numRealCommands];
-		for (int i = 0; i < numRealCommands; i++) {
-			int childPos = allNodes[rootNodeIndex].children[i];
-			realCommands[i] = allNodes[childPos].name;
+		for (int i = 0; i < getNumStartingNodes(); i++) {
+			CommandNode startingNode = getStartingNode(i);
+			//printChildren(startingNode, "");
 		}
-/*
-		for (int i = 0; i < numRealCommands; i++) {
-			int childPos = allNodes[rootNodeIndex].children[i];
-			 allNodes[childPos].children;
-		}
-*/
 
 
 		System.out.println("READ DECLARE FROM SERVER. root node:" + rootNodeIndex);
+	}
+
+	private void printChildren(CommandNode startingNode, String indent) {
+		System.out.println(indent + "*Printing children for command " +  startingNode.name + ", num children: " + startingNode.children.length);
+		for (int child = 0; child < startingNode.children.length; child++) {
+			CommandNode childNode = allNodes[startingNode.children[child]];
+			System.out.println(indent + " Children pos " + child + ", value: " + startingNode.children[child] + ", content: " + childNode);
+			printChildren(childNode, indent + "  ");
+		}
+	}
+
+	private int getNumStartingNodes() {
+		return allNodes[rootNodeIndex].children.length;
+	}
+
+	private CommandNode getStartingNode(int index) {
+		return allNodes[allNodes[rootNodeIndex].children[index]];
+	}
+
+	private CommandNode readCommandNode(ByteBuf from) {
+		byte flags = from.readByte();
+		boolean isPathEnd;
+		int redirect = -1;
+		int[] children = ArraySerializer.readVarIntVarIntArray(from).clone();
+		if ((flags & FLAG_HAS_REDIRECT) != 0) {
+			redirect = VarNumberSerializer.readVarInt(from);
+		}
+		String name;
+		String argType;
+		String suggestion;
+
+		isPathEnd = ((flags & FLAG_IS_COMMAND_PATH_END) != 0);
+
+		if ((flags & FLAG_IS_LITERAL) != 0) {
+			name = StringSerializer.readVarIntUTF8String(from);
+			argType = null; // no argType signals this is a literal
+			suggestion = null;
+		} else if ((flags & FLAG_IS_ARGUMENT) != 0) {
+			name = StringSerializer.readVarIntUTF8String(from);
+			argType = readArgType(from);
+
+			if ((flags & FLAG_HAS_SUGGESTION) != 0) {
+				suggestion = StringSerializer.readVarIntUTF8String(from);
+			} else {
+				suggestion = null;
+			}
+		} else {
+			// This is only allowed for the root node
+			name = null;
+			argType = null;
+			suggestion = null;
+		}
+		return new CommandNode(name, argType, suggestion, children, redirect, isPathEnd);
+	}
+
+	private String readArgType(ByteBuf from) {
+		String argType = StringSerializer.readVarIntUTF8String(from);
+		// Depending on argType, there might be additional data.
+
+		if (argType.equals("brigadier:string")) {
+			// Determine kind of string, any of STRING_IS_*...
+			int stringType = VarNumberSerializer.readVarInt(from);
+		} else if (argType.equals("brigadier:integer")) {
+			byte flag = from.readByte();
+			int min = -2147483648;
+			int max = 2147483647;
+			if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
+				min = from.readInt();
+			}
+			if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
+				max = from.readInt();
+			}
+		} else if (argType.equals("brigadier:float")) {
+			byte flag = from.readByte();
+			float min = -3.4028235E38F;
+			float max = 3.4028235E38F;
+			if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
+				min = from.readFloat();
+			}
+			if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
+				max = from.readFloat();
+			}
+		} else if (argType.equals("brigadier:double")) {
+			byte flag = from.readByte();
+			double min = -3.4028235E38F;
+			double max = 3.4028235E38F;
+			if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
+				min = from.readDouble();
+			}
+			if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
+				max = from.readDouble();
+			}
+		} else if (argType.equals("minecraft:entity")) {
+			// The flag determines the amount (single or double) and type (players or entities)
+			// See FLAG_ENTITY_AMOUNT_IS_SINGLE and FLAG_ENTITY_TYPE_IS_PLAYER.
+			byte flag = from.readByte();
+		} else if (argType.equals("minecraft:score_holder")) {
+			// The "multiple" boolean is true if multiple, false if single.
+			byte multiple = from.readByte();
+		} else {
+			// For all other types, there is no additional data
+		}
+		return argType;
 	}
 
 	private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
@@ -185,6 +201,11 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		// Write enumValues, a way to number strings
 		// size
 		VarNumberSerializer.writeVarInt(serializer, 0);
+/*
+		VarNumberSerializer.writeVarInt(serializer, 2);
+		StringSerializer.writeVarIntUTF8String(serializer, "clear");
+		StringSerializer.writeVarIntUTF8String(serializer, "rain");
+*/
 		// then one string per index
 
 		// Write postFixes
@@ -196,6 +217,19 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		// aliases, or from parameter types.
 		// size
 		VarNumberSerializer.writeVarInt(serializer, 0);
+/*
+		VarNumberSerializer.writeVarInt(serializer, 2);
+
+		StringSerializer.writeVarIntUTF8String(serializer, "clearEnum");
+		VarNumberSerializer.writeVarInt(serializer, 1);
+		serializer.writeByte(0);
+
+
+		StringSerializer.writeVarIntUTF8String(serializer, "rainEnum");
+		VarNumberSerializer.writeVarInt(serializer, 1);
+		serializer.writeByte(1);
+*/
+
 		// For each cmdEnum, a complex structure
 		// String : name
 		// VarInt : enum size
@@ -204,20 +238,81 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 		// Write commandData
 		// size
-		System.out.println("HELLO + WORLD");
-		VarNumberSerializer.writeVarInt(serializer, numRealCommands);
-		for (int i = 0; i < numRealCommands; i++) {
-			System.out.println("generating data for " + realCommands[i]);
-			StringSerializer.writeVarIntUTF8String(serializer, realCommands[i]);
-			StringSerializer.writeVarIntUTF8String(serializer, "No desc");
+		VarNumberSerializer.writeVarInt(serializer, 0);
+		for (int i = 0; i < getNumStartingNodes(); i++) {
+			StringSerializer.writeVarIntUTF8String(serializer, getStartingNode(i).name);
+			StringSerializer.writeVarIntUTF8String(serializer, "");
 			serializer.writeByte(0);
 			serializer.writeByte(0);
 
 			serializer.writeIntLE(-1); // alias
 
-			// always has one overload.
-			VarNumberSerializer.writeVarInt(serializer, 1);
-			VarNumberSerializer.writeVarInt(serializer, 0); // no parameters
+			if (getStartingNode(i).name.equals("weatherXXX")) {
+
+				// VarInt : size of overloads
+				VarNumberSerializer.writeVarInt(serializer, 1);
+
+				// for each overload:
+				// --- VarInt : length of parameters
+				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
+				//     for each parameter:
+				//     String : parameter name
+				StringSerializer.writeVarIntUTF8String(serializer, "clearArg");
+
+				//     LEint : messed-up-flag*
+				int messedUpFlag = 25 | (0x100000);
+
+				serializer.writeIntLE(messedUpFlag);
+				//     byte : is optional (1 = true, 0 = false)
+				serializer.writeByte(1);
+				//     byte : flags (?) -- always 0 in Nukkit
+				serializer.writeByte(0);
+				System.out.println("done doing weather");
+				/*
+				// VarInt : size of overloads
+				VarNumberSerializer.writeVarInt(serializer, 2);
+
+				// for each overload:
+				// --- VarInt : length of parameters
+				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
+				//     for each parameter:
+				//     String : parameter name
+				StringSerializer.writeVarIntUTF8String(serializer, "clearArg");
+
+				//     LEint : messed-up-flag*
+				int messedUpFlag = 0 | (0x100000 | 0x200000);
+
+				serializer.writeIntLE(messedUpFlag);
+				//     byte : is optional (1 = true, 0 = false)
+				serializer.writeByte(0);
+				//     byte : flags (?) -- always 0 in Nukkit
+				serializer.writeByte(0);
+
+				// Messed up flags work like:
+				//     public static final int ARG_FLAG_VALID = 0x100000;
+				//    public static final int ARG_FLAG_ENUM = 0x200000;
+				//    public static final int ARG_FLAG_POSTFIX = 0x1000000;
+
+				// this is OR:ed on flag as follows:
+				// if it has postfix, set postfix flag and also OR in index in postfix array
+				// otherwise, ALWAYS add VALID with OR. Then also do one of following:
+				// if the parameter has an enum add ENUM with OR, and also OR in the index in enums
+				// otherwise OR in parameter type ID.
+
+				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
+				StringSerializer.writeVarIntUTF8String(serializer, "rainArg");
+				int messedUpFlag2 = 1 | (0x100000 | 0x200000);
+				serializer.writeIntLE(messedUpFlag2);
+				serializer.writeByte(0);
+				serializer.writeByte(0);
+				*/
+
+			} else {
+				// always has one overload.
+				VarNumberSerializer.writeVarInt(serializer, 1);
+				VarNumberSerializer.writeVarInt(serializer, 0); // no parameters
+
+			}
 		}
 
 		// For each commandData, a complex structure
@@ -539,6 +634,17 @@ BASIC TYPES!!!
 
 På PC sidan finns grunden i com.mojang.brigadier.tree.CommandNode!
 
+
+så weather clear <duration>
+   weather rain <duration>
+
+   kan tolkas som weather <clear|rain> <duration>
+   eller som
+   weather clear <duration>
+   weather rain <duration>
+
+   Förstnämnda "snyggare" men svårare att få till, sistnämnda lättare. Bara skapa en rak "overload" för varje väg genom
+   grenen. Funkar det? Det gör jag iaf genom att gå till varje löv, och spara ner vägen dit i en overload-lista.
 		 */
 	}
 
