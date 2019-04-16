@@ -17,8 +17,19 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 	private static final byte FLAG_IS_LITERAL = 1;
 	private static final byte FLAG_IS_ARGUMENT = 2;
+	private static final byte FLAG_IS_COMMAND_PATH_END = 4;
 	private static final byte FLAG_HAS_REDIRECT = 8;
 	private static final byte FLAG_HAS_SUGGESTION = 16;
+
+	private static final byte FLAG_HAS_MIN_VALUE = 1;
+	private static final byte FLAG_HAS_MAX_VALUE = 2;
+
+	private static final byte STRING_IS_WORD = 1;
+	private static final byte STRING_IS_PHRASE = 2;
+	private static final byte STRING_IS_GREEDY = 3;
+
+	private static final byte FLAG_ENTITY_AMOUNT_IS_SINGLE = 1;
+	private static final byte FLAG_ENTITY_TYPE_IS_PLAYER = 2;
 
 	int numRealCommands = 0;
 	String[] realCommands = null;
@@ -29,15 +40,19 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 	public static class CommandNode {
 		private String name;
+		private String argType;
+		private String suggestion;
 		private int[] children;
-		private boolean isLiteral;
-		private String type;
+		private int redirect;
+		private boolean isPathEnd;
 
-		public CommandNode(String name, int[] children, boolean isLiteral, String type) {
+		public CommandNode(String name, String argType, String suggestion, int[] children, int redirect, boolean isPathEnd) {
 			this.name = name;
+			this.argType = argType;
+			this.suggestion = suggestion;
 			this.children = children;
-			this.isLiteral = isLiteral;
-			this.type = type;
+			this.redirect = redirect;
+			this.isPathEnd = isPathEnd;
 		}
 
 		@Override
@@ -48,126 +63,95 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 	@Override
 	public void readFromServerData(ByteBuf from) {
-		//super.readFromServerData(serverdata);
 		int length = VarNumberSerializer.readVarInt(from);
 
-		System.out.println("array positions: " + length);
 		CommandNode[] allNodes = new CommandNode[length];
 		for (int i = 0; i < length; i++) {
 			byte flags = from.readByte();
+			boolean isPathEnd;
 			int redirect = -1;
 			int[] children = ArraySerializer.readVarIntVarIntArray(from).clone();
 			if ((flags & FLAG_HAS_REDIRECT) != 0) {
 				redirect = VarNumberSerializer.readVarInt(from);
 			}
-			System.out.println("CMD #" + i + " flags " + flags + " redirect: " + redirect);
-			System.out.println("cmdPositions: ");
-			for (int pos = 0; pos < children.length; pos++) {
-				System.out.println("pos " + pos + " cmd value " +children[pos]);
-			}
-			if (i == 0) {
-		//		numRealCommands = children.length;
-		//		realCommands = new String[numRealCommands];
-			}
-			String name = "";
-			String argType = "";
-			boolean isLiteral = false;
+			String name;
+			String argType;
+			String suggestion;
+
+			isPathEnd = ((flags & FLAG_IS_COMMAND_PATH_END) != 0);
+
 			if ((flags & FLAG_IS_LITERAL) != 0) {
 				name = StringSerializer.readString(from, ProtocolVersionsHelper.LATEST_PC);
-				isLiteral = true;
-				System.out.println("got LITERAL, name:" + name);
-				if (i > 0 && i <= numRealCommands) {
-				//	realCommands[i-1] = name;
-
-				}
-
+				argType = null; // no argType signals this is a literal
+				suggestion = null;
 			} else if ((flags & FLAG_IS_ARGUMENT) != 0) {
 				name = StringSerializer.readVarIntUTF8String(from);
 				argType = StringSerializer.readVarIntUTF8String(from);
-				// now read different stuff depending on argType. *sigh*
-
-
-				System.out.println("got ARG, name: " + name + ", type: " + argType );
+				// Depending on argType, there might be additional data.
 
 				if (argType.equals("brigadier:string")) {
-					// for string, this is most likely a varint specifying type enum:...?
+					// Determine kind of string, any of STRING_IS_*...
 					int stringType = VarNumberSerializer.readVarInt(from);
-					System.out.println("BRIG-STRING: data" + stringType);
 				} else if (argType.equals("brigadier:integer")) {
 					byte flag = from.readByte();
 					int min = -2147483648;
 					int max = 2147483647;
-					if ((flag & 1) != 0) {
-						// read min value
+					if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
 						min = from.readInt();
 					}
-					if ((flag & 2) != 0) {
-						// read max value
+					if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
 						max = from.readInt();
 					}
-
-					System.out.println("INTEGER: flag:" + flag + " min" + min + " max " + max);
 				} else if (argType.equals("brigadier:float")) {
 					byte flag = from.readByte();
 					float min = -3.4028235E38F;
 					float max = 3.4028235E38F;
-					if ((flag & 1) != 0) {
-						// read min value
+					if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
 						min = from.readFloat();
 					}
-					if ((flag & 2) != 0) {
-						// read max value
+					if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
 						max = from.readFloat();
 					}
-
-					System.out.println("FLOAT: flag:" + flag + " min" + min + " max " + max);
 				} else if (argType.equals("brigadier:double")) {
 					byte flag = from.readByte();
 					double min = -3.4028235E38F;
 					double max = 3.4028235E38F;
-					if ((flag & 1) != 0) {
-						// read min value
+					if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
 						min = from.readDouble();
 					}
-					if ((flag & 2) != 0) {
-						// read max value
+					if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
 						max = from.readDouble();
 					}
-
-					System.out.println("DOUBLE: flag:" + flag + " min" + min + " max " + max);
 				} else if (argType.equals("minecraft:entity")) {
+					// The flag determines the amount (single or double) and type (players or entities)
+					// See FLAG_ENTITY_AMOUNT_IS_SINGLE and FLAG_ENTITY_TYPE_IS_PLAYER.
 					byte flag = from.readByte();
-					System.out.println("ENTITY: flag:" + flag);
 				} else if (argType.equals("minecraft:score_holder")) {
+					// The "multiple" boolean is true if multiple, false if single.
 					byte multiple = from.readByte();
-					System.out.println("score_holder: multiple:" + multiple);
-					// read byte, for boolean. if true multiple otherwise single.
-				} else if (argType.equals("minecraft:block_pos")) {
-					// void
-					System.out.println("block_pos: void:");
-				} else if (argType.equals("minecraft:game_profile")) {
-					// void
-					System.out.println("game_profile: void:");
 				} else {
-					System.out.println("UNHANDLED TYHPE: " + argType);
+					// For all other types, there is no additional data
 				}
 
-				String suggestion = "";
 				if ((flags & FLAG_HAS_SUGGESTION) != 0) {
 					suggestion = StringSerializer.readVarIntUTF8String(from);
-
-
+				} else {
+					suggestion = null;
 				}
-
-				System.out.println("got ARG, name: " + name + ", type: " + argType + ", suggest:" + suggestion);
+			} else {
+				// This is only allowed for the root node
+				name = null;
+				argType = null;
+				suggestion = null;
 			}
-			CommandNode node = new CommandNode(name, children, isLiteral, argType);
-			System.out.println("created " + node);
+			CommandNode node = new CommandNode(name, argType, suggestion, children, redirect, isPathEnd);
 			allNodes[i] = node;
 		}
 
-		// write VarInt, the position of the rootCommandNode in the array.
 		int rootNodeIndex = VarNumberSerializer.readVarInt(from);
+
+		// Now reading data is done. Parse into tree, if needed.
+
 		numRealCommands = allNodes[rootNodeIndex].children.length;
 		realCommands = new String[numRealCommands];
 		for (int i = 0; i < numRealCommands; i++) {
