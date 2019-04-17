@@ -268,99 +268,15 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		// size
 		VarNumberSerializer.writeVarInt(serializer, getNumStartingNodes());
 		for (int i = 0; i < getNumStartingNodes(); i++) {
-			StringSerializer.writeVarIntUTF8String(serializer, getStartingNode(i).name);
+			CommandNode node = getStartingNode(i);
+			StringSerializer.writeVarIntUTF8String(serializer, node.name);
 			StringSerializer.writeVarIntUTF8String(serializer, "");
 			serializer.writeByte(0);
 			serializer.writeByte(0);
 
 			serializer.writeIntLE(-1); // alias
-			System.out.println("FOR " + getStartingNode(i).name);
+			System.out.println("FOR " + node.name);
 
-			if (getStartingNode(i).name.equals("xpXXX")) {
-
-				// VarInt : size of overloads
-				VarNumberSerializer.writeVarInt(serializer, 1);
-
-				// for each overload:
-				// --- VarInt : length of parameters
-				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
-				//     for each parameter:
-				//     String : parameter name
-				StringSerializer.writeVarIntUTF8String(serializer, "clearArg");
-
-				//     LEint : messed-up-flag*
-				int messedUpFlag = 35 | (0x100000);
-
-				serializer.writeIntLE(messedUpFlag);
-				//     byte : is optional (1 = true, 0 = false)
-				serializer.writeByte(1);
-				//     byte : flags (?) -- always 0 in Nukkit
-				serializer.writeByte(0);
-				System.out.println("done doing xp");
-			} else if (getStartingNode(i).name.equals("weatherYYYY")) {
-
-
-				// VarInt : size of overloads
-				VarNumberSerializer.writeVarInt(serializer, 2);
-
-				// for each overload:
-				// --- VarInt : length of parameters
-				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
-				//     for each parameter:
-				//     String : parameter name
-				StringSerializer.writeVarIntUTF8String(serializer, "");
-
-				//     LEint : messed-up-flag*
-				int messedUpFlag = 0 | (0x100000 | 0x200000);
-
-				serializer.writeIntLE(messedUpFlag);
-				//     byte : is optional (1 = true, 0 = false)
-				serializer.writeByte(0);
-				//     byte : flags (?) -- always 0 in Nukkit
-				serializer.writeByte(0);
-
-				// Messed up flags work like:
-				//     public static final int ARG_FLAG_VALID = 0x100000;
-				//    public static final int ARG_FLAG_ENUM = 0x200000;
-				//    public static final int ARG_FLAG_POSTFIX = 0x1000000;
-
-				// this is OR:ed on flag as follows:
-				// if it has postfix, set postfix flag and also OR in index in postfix array
-				// otherwise, ALWAYS add VALID with OR. Then also do one of following:
-				// if the parameter has an enum add ENUM with OR, and also OR in the index in enums
-				// otherwise OR in parameter type ID.
-
-				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
-				StringSerializer.writeVarIntUTF8String(serializer, "");
-				int messedUpFlag2 = 1 | (0x100000 | 0x200000);
-				serializer.writeIntLE(messedUpFlag2);
-				serializer.writeByte(0);
-				serializer.writeByte(0);
-				System.out.println("weather done");
-
-			} else if (getStartingNode(i).name.equals("minecraft:weatherXXX")) {
-
-
-				// VarInt : size of overloads
-				VarNumberSerializer.writeVarInt(serializer, 1);
-
-				// for each overload:
-				// --- VarInt : length of parameters
-				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
-				//     for each parameter:
-				//     String : parameter name
-				StringSerializer.writeVarIntUTF8String(serializer, "");
-
-				//     LEint : messed-up-flag*
-				int messedUpFlag = 2 | (0x100000 | 0x200000);
-
-				serializer.writeIntLE(messedUpFlag);
-				//     byte : is optional (1 = true, 0 = false)
-				serializer.writeByte(0);
-				//     byte : flags (?) -- always 0 in Nukkit
-				serializer.writeByte(0);
-
-			} else {
 				// always has one overload.
 				// we must always have a void overload, and our hack tried to make a single
 				// overload from first child otherwise
@@ -370,7 +286,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 				LinkedList<String> argTypes = new LinkedList<>();
 				LinkedList<Boolean> isLast = new LinkedList<>();
 
-				CommandNode node = getStartingNode(i);
+
 				while (node.children.length > 0) {
 					// just get first node
 					node = allNodes[node.children[0]];
@@ -391,11 +307,11 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 					String argType = argTypes.get(j);
 					String prefix = argType + ":";
-					int flag;
+					int flag = 0;
 					if (argType.equals("LITERAL")) {
-						flag = 35;
+						flag = 27;
 					} else if (argType.equals("brigadier:bool")) {
-						flag = ARG_TYPE_VALUE;
+						flag = 27;
 					} else if (argType.equals("brigadier:float")) {
 						flag = ARG_TYPE_FLOAT;
 					} else if (argType.equals("brigadier:double")) {
@@ -403,23 +319,24 @@ public class DeclareCommands extends MiddleDeclareCommands {
 					} else if (argType.equals("brigadier:integer")) {
 						flag = ARG_TYPE_INT;
 					} else if (argType.equals("brigadier:string")) {
-						flag = ARG_TYPE_STRING;
+						flag = 27;
 					} else if (argType.equals("minecraft:int_range")) {
 						flag = ARG_TYPE_INT;
 					} else if (argType.equals("minecraft:float_range")) {
 						flag = ARG_TYPE_FLOAT;
 					} else if (argType.equals("minecraft:block_pos")) {
-						flag = ARG_TYPE_POSITION;
+						flag = 29;
 					} else if (argType.equals("minecraft:vec3")) {
-						flag = ARG_TYPE_POSITION;
+						flag = 29;
 					} else if (argType.equals("minecraft:entity")) {
 						flag = ARG_TYPE_TARGET;
 					} else if (argType.equals("minecraft:message")) {
-						flag = ARG_TYPE_MESSAGE;
+						flag = 32;
 					} else {
-						flag = ARG_TYPE_RAWTEXT;
+						flag = 34;
 					}
 
+					// 0 unknown
 					//     public static final int ARG_TYPE_INT = 1;
 					//    public static final int ARG_TYPE_FLOAT = 2;
 					//    public static final int ARG_TYPE_VALUE = 3;
@@ -427,17 +344,22 @@ public class DeclareCommands extends MiddleDeclareCommands {
 					//    public static final int ARG_TYPE_OPERATOR = 5;
 					//    public static final int ARG_TYPE_TARGET = 6;
 					//    public static final int ARG_TYPE_WILDCARD_TARGET = 7;
-					//
+					// 8-13 wildcard target
+					// 14-17 file path
 					//    public static final int ARG_TYPE_FILE_PATH = 15;
-					//
-					//    public static final int ARG_TYPE_INT_RANGE = 19;
-					//
-					//    public static final int ARG_TYPE_STRING = 28;
+					// 18 unknown-26
+					//    public static final int ARG_TYPE_INT_RANGE = 19; FEL UNKNOWN
+					// 27 string
+					//    public static final int ARG_TYPE_STRING = 28; också..?
+					// 29-31 pos xyz
 					//    public static final int ARG_TYPE_POSITION = 30;
-					//
+					// 32 msg
 					//    public static final int ARG_TYPE_MESSAGE = 33;
+					// 34-36 text
 					//    public static final int ARG_TYPE_RAWTEXT = 35;
+					// 37-43 json
 					//    public static final int ARG_TYPE_JSON = 38;
+					// 44 cmnd--99
 					//    public static final int ARG_TYPE_COMMAND = 45;
 
 
@@ -489,20 +411,18 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 					//     for each parameter:
 					//     String : parameter name
-					StringSerializer.writeVarIntUTF8String(serializer, prefix+"("+flag+")");
+					//StringSerializer.writeVarIntUTF8String(serializer, prefix+"("+flag+")");
+					//StringSerializer.writeVarIntUTF8String(serializer, names.get(j));
+					if (argType.equals("LITERAL")) {
+						StringSerializer.writeVarIntUTF8String(serializer, "'" + names.get(j) + "'");
+					} else {
+						StringSerializer.writeVarIntUTF8String(serializer, names.get(j));
+					}
+
 					System.out.println("Generating overload:" + prefix+names.get(j)+"("+flag+")");
 
-					flag = flag| (0x100000);
 					//     LEint : messed-up-flag*
-					if (j==0) {
-						flag = ARG_TYPE_STRING | 0x100000;
-					} else if (j==1) {
-							flag = ARG_TYPE_RAWTEXT | 0x100000;
-					} else if (j==2) {
-								flag = ARG_TYPE_POSITION | 0x100000;
-					} else if (j==3) {
-									flag = ARG_TYPE_FLOAT | 0x100000;
-					}
+					flag = flag | 0x100000;
 					serializer.writeIntLE(flag);
 					//     byte : is optional (1 = true, 0 = false)
 					// should probably look at *next* node
@@ -511,7 +431,6 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 					//     byte : flags (?) -- always 0 in Nukkit
 					serializer.writeByte(0);
-				}
 
 			}
 		}
