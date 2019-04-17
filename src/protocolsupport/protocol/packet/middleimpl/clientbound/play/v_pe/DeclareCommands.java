@@ -12,6 +12,8 @@ import protocolsupport.utils.Utils;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
 
+import java.util.LinkedList;
+
 public class DeclareCommands extends MiddleDeclareCommands {
 
 	private static final byte FLAG_IS_LITERAL = 1;
@@ -29,6 +31,27 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 	private static final byte FLAG_ENTITY_AMOUNT_IS_SINGLE = 1;
 	private static final byte FLAG_ENTITY_TYPE_IS_PLAYER = 2;
+
+	// PE argument types
+	public static final int ARG_TYPE_INT = 1;
+	public static final int ARG_TYPE_FLOAT = 2;
+	public static final int ARG_TYPE_VALUE = 3;
+	public static final int ARG_TYPE_WILDCARD_INT = 4;
+	public static final int ARG_TYPE_OPERATOR = 5;
+	public static final int ARG_TYPE_TARGET = 6;
+	public static final int ARG_TYPE_WILDCARD_TARGET = 7;
+
+	public static final int ARG_TYPE_FILE_PATH = 15;
+
+	public static final int ARG_TYPE_INT_RANGE = 19;
+
+	public static final int ARG_TYPE_STRING = 28;
+	public static final int ARG_TYPE_POSITION = 30;
+
+	public static final int ARG_TYPE_MESSAGE = 33;
+	public static final int ARG_TYPE_RAWTEXT = 35;
+	public static final int ARG_TYPE_JSON = 38;
+	public static final int ARG_TYPE_COMMAND = 45;
 
 	private CommandNode[] allNodes;
 	private int rootNodeIndex;
@@ -96,7 +119,8 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	}
 
 	private CommandNode getStartingNode(int index) {
-		return allNodes[allNodes[rootNodeIndex].children[index]];
+		int[] topLevelNodes = allNodes[rootNodeIndex].children;
+		return allNodes[topLevelNodes[index]];
 	}
 
 	private CommandNode readCommandNode(ByteBuf from) {
@@ -200,12 +224,12 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.TAB_COMPLETE);
 		// Write enumValues, a way to number strings
 		// size
-		VarNumberSerializer.writeVarInt(serializer, 0);
-/*
+//		VarNumberSerializer.writeVarInt(serializer, 0);
+
 		VarNumberSerializer.writeVarInt(serializer, 2);
 		StringSerializer.writeVarIntUTF8String(serializer, "clear");
 		StringSerializer.writeVarIntUTF8String(serializer, "rain");
-*/
+
 		// then one string per index
 
 		// Write postFixes
@@ -216,19 +240,23 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		// Write cmdEnums, a way to group the enumValues that can be refered to from
 		// aliases, or from parameter types.
 		// size
-		VarNumberSerializer.writeVarInt(serializer, 0);
-/*
-		VarNumberSerializer.writeVarInt(serializer, 2);
+//		VarNumberSerializer.writeVarInt(serializer, 0);
 
-		StringSerializer.writeVarIntUTF8String(serializer, "clearEnum");
+		VarNumberSerializer.writeVarInt(serializer, 3);
+
+		StringSerializer.writeVarIntUTF8String(serializer, "");
 		VarNumberSerializer.writeVarInt(serializer, 1);
 		serializer.writeByte(0);
 
 
-		StringSerializer.writeVarIntUTF8String(serializer, "rainEnum");
+		StringSerializer.writeVarIntUTF8String(serializer, "");
 		VarNumberSerializer.writeVarInt(serializer, 1);
 		serializer.writeByte(1);
-*/
+
+		StringSerializer.writeVarIntUTF8String(serializer, "");
+		VarNumberSerializer.writeVarInt(serializer, 2);
+		serializer.writeByte(0);
+		serializer.writeByte(1);
 
 		// For each cmdEnum, a complex structure
 		// String : name
@@ -238,7 +266,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 		// Write commandData
 		// size
-		VarNumberSerializer.writeVarInt(serializer, 0);
+		VarNumberSerializer.writeVarInt(serializer, getNumStartingNodes());
 		for (int i = 0; i < getNumStartingNodes(); i++) {
 			StringSerializer.writeVarIntUTF8String(serializer, getStartingNode(i).name);
 			StringSerializer.writeVarIntUTF8String(serializer, "");
@@ -246,8 +274,9 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			serializer.writeByte(0);
 
 			serializer.writeIntLE(-1); // alias
+			System.out.println("FOR " + getStartingNode(i).name);
 
-			if (getStartingNode(i).name.equals("weatherXXX")) {
+			if (getStartingNode(i).name.equals("xpXXX")) {
 
 				// VarInt : size of overloads
 				VarNumberSerializer.writeVarInt(serializer, 1);
@@ -260,15 +289,17 @@ public class DeclareCommands extends MiddleDeclareCommands {
 				StringSerializer.writeVarIntUTF8String(serializer, "clearArg");
 
 				//     LEint : messed-up-flag*
-				int messedUpFlag = 25 | (0x100000);
+				int messedUpFlag = 35 | (0x100000);
 
 				serializer.writeIntLE(messedUpFlag);
 				//     byte : is optional (1 = true, 0 = false)
 				serializer.writeByte(1);
 				//     byte : flags (?) -- always 0 in Nukkit
 				serializer.writeByte(0);
-				System.out.println("done doing weather");
-				/*
+				System.out.println("done doing xp");
+			} else if (getStartingNode(i).name.equals("weatherYYYY")) {
+
+
 				// VarInt : size of overloads
 				VarNumberSerializer.writeVarInt(serializer, 2);
 
@@ -277,7 +308,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
 				//     for each parameter:
 				//     String : parameter name
-				StringSerializer.writeVarIntUTF8String(serializer, "clearArg");
+				StringSerializer.writeVarIntUTF8String(serializer, "");
 
 				//     LEint : messed-up-flag*
 				int messedUpFlag = 0 | (0x100000 | 0x200000);
@@ -300,17 +331,187 @@ public class DeclareCommands extends MiddleDeclareCommands {
 				// otherwise OR in parameter type ID.
 
 				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
-				StringSerializer.writeVarIntUTF8String(serializer, "rainArg");
+				StringSerializer.writeVarIntUTF8String(serializer, "");
 				int messedUpFlag2 = 1 | (0x100000 | 0x200000);
 				serializer.writeIntLE(messedUpFlag2);
 				serializer.writeByte(0);
 				serializer.writeByte(0);
-				*/
+				System.out.println("weather done");
+
+			} else if (getStartingNode(i).name.equals("minecraft:weatherXXX")) {
+
+
+				// VarInt : size of overloads
+				VarNumberSerializer.writeVarInt(serializer, 1);
+
+				// for each overload:
+				// --- VarInt : length of parameters
+				VarNumberSerializer.writeVarInt(serializer, 1); // 1 parameter
+				//     for each parameter:
+				//     String : parameter name
+				StringSerializer.writeVarIntUTF8String(serializer, "");
+
+				//     LEint : messed-up-flag*
+				int messedUpFlag = 2 | (0x100000 | 0x200000);
+
+				serializer.writeIntLE(messedUpFlag);
+				//     byte : is optional (1 = true, 0 = false)
+				serializer.writeByte(0);
+				//     byte : flags (?) -- always 0 in Nukkit
+				serializer.writeByte(0);
 
 			} else {
 				// always has one overload.
+				// we must always have a void overload, and our hack tried to make a single
+				// overload from first child otherwise
 				VarNumberSerializer.writeVarInt(serializer, 1);
-				VarNumberSerializer.writeVarInt(serializer, 0); // no parameters
+
+				LinkedList<String> names = new LinkedList<>();
+				LinkedList<String> argTypes = new LinkedList<>();
+				LinkedList<Boolean> isLast = new LinkedList<>();
+
+				CommandNode node = getStartingNode(i);
+				while (node.children.length > 0) {
+					// just get first node
+					node = allNodes[node.children[0]];
+					if (node.argType != null) {
+						// it's an argument type, use it
+						names.add(node.name);
+						argTypes.add(node.argType);
+					} else {
+						names.add(node.name);
+						argTypes.add("LITERAL");
+					}
+					isLast.add(node.isPathEnd);
+				}
+
+				// --- VarInt : length of parameters
+				VarNumberSerializer.writeVarInt(serializer, names.size());
+				for (int j = 0; j < names.size(); j++) {
+
+					String argType = argTypes.get(j);
+					String prefix = argType + ":";
+					int flag;
+					if (argType.equals("LITERAL")) {
+						flag = 35;
+					} else if (argType.equals("brigadier:bool")) {
+						flag = ARG_TYPE_VALUE;
+					} else if (argType.equals("brigadier:float")) {
+						flag = ARG_TYPE_FLOAT;
+					} else if (argType.equals("brigadier:double")) {
+						flag = ARG_TYPE_FLOAT;
+					} else if (argType.equals("brigadier:integer")) {
+						flag = ARG_TYPE_INT;
+					} else if (argType.equals("brigadier:string")) {
+						flag = ARG_TYPE_STRING;
+					} else if (argType.equals("minecraft:int_range")) {
+						flag = ARG_TYPE_INT;
+					} else if (argType.equals("minecraft:float_range")) {
+						flag = ARG_TYPE_FLOAT;
+					} else if (argType.equals("minecraft:block_pos")) {
+						flag = ARG_TYPE_POSITION;
+					} else if (argType.equals("minecraft:vec3")) {
+						flag = ARG_TYPE_POSITION;
+					} else if (argType.equals("minecraft:entity")) {
+						flag = ARG_TYPE_TARGET;
+					} else if (argType.equals("minecraft:message")) {
+						flag = ARG_TYPE_MESSAGE;
+					} else {
+						flag = ARG_TYPE_RAWTEXT;
+					}
+
+					//     public static final int ARG_TYPE_INT = 1;
+					//    public static final int ARG_TYPE_FLOAT = 2;
+					//    public static final int ARG_TYPE_VALUE = 3;
+					//    public static final int ARG_TYPE_WILDCARD_INT = 4;
+					//    public static final int ARG_TYPE_OPERATOR = 5;
+					//    public static final int ARG_TYPE_TARGET = 6;
+					//    public static final int ARG_TYPE_WILDCARD_TARGET = 7;
+					//
+					//    public static final int ARG_TYPE_FILE_PATH = 15;
+					//
+					//    public static final int ARG_TYPE_INT_RANGE = 19;
+					//
+					//    public static final int ARG_TYPE_STRING = 28;
+					//    public static final int ARG_TYPE_POSITION = 30;
+					//
+					//    public static final int ARG_TYPE_MESSAGE = 33;
+					//    public static final int ARG_TYPE_RAWTEXT = 35;
+					//    public static final int ARG_TYPE_JSON = 38;
+					//    public static final int ARG_TYPE_COMMAND = 45;
+
+
+			/*
+
+        a(new MinecraftKey("minecraft:game_profile"), ArgumentProfile.class, new ArgumentSerializerVoid(ArgumentProfile::a));
+        a(new MinecraftKey("minecraft:block_pos"), ArgumentPosition.class, new ArgumentSerializerVoid(ArgumentPosition::a));
+        a(new MinecraftKey("minecraft:column_pos"), ArgumentVec2I.class, new ArgumentSerializerVoid(ArgumentVec2I::a));
+        a(new MinecraftKey("minecraft:vec3"), ArgumentVec3.class, new ArgumentSerializerVoid(ArgumentVec3::a));
+        a(new MinecraftKey("minecraft:vec2"), ArgumentVec2.class, new ArgumentSerializerVoid(ArgumentVec2::a));
+        a(new MinecraftKey("minecraft:block_state"), ArgumentTile.class, new ArgumentSerializerVoid(ArgumentTile::a));
+        a(new MinecraftKey("minecraft:block_predicate"), ArgumentBlockPredicate.class, new ArgumentSerializerVoid(ArgumentBlockPredicate::a));
+        a(new MinecraftKey("minecraft:item_stack"), ArgumentItemStack.class, new ArgumentSerializerVoid(ArgumentItemStack::a));
+        a(new MinecraftKey("minecraft:item_predicate"), ArgumentItemPredicate.class, new ArgumentSerializerVoid(ArgumentItemPredicate::a));
+        a(new MinecraftKey("minecraft:color"), ArgumentChatFormat.class, new ArgumentSerializerVoid(ArgumentChatFormat::a));
+        a(new MinecraftKey("minecraft:component"), ArgumentChatComponent.class, new ArgumentSerializerVoid(ArgumentChatComponent::a));
+        a(new MinecraftKey("minecraft:message"), ArgumentChat.class, new ArgumentSerializerVoid(ArgumentChat::a));
+        a(new MinecraftKey("minecraft:nbt"), ArgumentNBTTag.class, new ArgumentSerializerVoid(ArgumentNBTTag::a));
+        a(new MinecraftKey("minecraft:nbt_path"), ArgumentNBTKey.class, new ArgumentSerializerVoid(ArgumentNBTKey::a));
+        a(new MinecraftKey("minecraft:objective"), ArgumentScoreboardObjective.class, new ArgumentSerializerVoid(ArgumentScoreboardObjective::a));
+        a(new MinecraftKey("minecraft:objective_criteria"), ArgumentScoreboardCriteria.class, new ArgumentSerializerVoid(ArgumentScoreboardCriteria::a));
+        a(new MinecraftKey("minecraft:operation"), ArgumentMathOperation.class, new ArgumentSerializerVoid(ArgumentMathOperation::a));
+        a(new MinecraftKey("minecraft:particle"), ArgumentParticle.class, new ArgumentSerializerVoid(ArgumentParticle::a));
+        a(new MinecraftKey("minecraft:rotation"), ArgumentRotation.class, new ArgumentSerializerVoid(ArgumentRotation::a));
+        a(new MinecraftKey("minecraft:scoreboard_slot"), ArgumentScoreboardSlot.class, new ArgumentSerializerVoid(ArgumentScoreboardSlot::a));
+        a(new MinecraftKey("minecraft:swizzle"), ArgumentRotationAxis.class, new ArgumentSerializerVoid(ArgumentRotationAxis::a));
+        a(new MinecraftKey("minecraft:team"), ArgumentScoreboardTeam.class, new ArgumentSerializerVoid(ArgumentScoreboardTeam::a));
+        a(new MinecraftKey("minecraft:item_slot"), ArgumentInventorySlot.class, new ArgumentSerializerVoid(ArgumentInventorySlot::a));
+        a(new MinecraftKey("minecraft:resource_location"), ArgumentMinecraftKeyRegistered.class, new ArgumentSerializerVoid(ArgumentMinecraftKeyRegistered::a));
+        a(new MinecraftKey("minecraft:mob_effect"), ArgumentMobEffect.class, new ArgumentSerializerVoid(ArgumentMobEffect::a));
+        a(new MinecraftKey("minecraft:function"), ArgumentTag.class, new ArgumentSerializerVoid(ArgumentTag::a));
+        a(new MinecraftKey("minecraft:entity_anchor"), ArgumentAnchor.class, new ArgumentSerializerVoid(ArgumentAnchor::a));
+        a(new MinecraftKey("minecraft:item_enchantment"), ArgumentEnchantment.class, new ArgumentSerializerVoid(ArgumentEnchantment::a));
+        a(new MinecraftKey("minecraft:entity_summon"), ArgumentEntitySummon.class, new ArgumentSerializerVoid(ArgumentEntitySummon::a));
+        a(new MinecraftKey("minecraft:dimension"), ArgumentDimension.class, new ArgumentSerializerVoid(ArgumentDimension::a));
+
+			*/
+					//         ArgumentRegistry.a(new MinecraftKey("brigadier:bool"), BoolArgumentType.class, new ArgumentSerializerVoid(BoolArgumentType::bool));
+					//        ArgumentRegistry.a(new MinecraftKey("brigadier:float"), FloatArgumentType.class, new ArgumentSerializerFloat());
+					//        ArgumentRegistry.a(new MinecraftKey("brigadier:double"), DoubleArgumentType.class, new ArgumentSerializerDouble());
+					//        ArgumentRegistry.a(new MinecraftKey("brigadier:integer"), IntegerArgumentType.class, new ArgumentSerializerInteger());
+					//        ArgumentRegistry.a(new MinecraftKey("brigadier:string"), StringArgumentType.class, new ArgumentSerializerString());
+					//
+					//
+					//        a(new MinecraftKey("minecraft:entity"), ArgumentEntity.class, new net.minecraft.server.v1_13_R2.ArgumentEntity.a());
+					//        a(new MinecraftKey("minecraft:score_holder"), ArgumentScoreholder.class, new c());
+					//        a(new MinecraftKey("minecraft:int_range"), b.class, new net.minecraft.server.v1_13_R2.ArgumentCriterionValue.b.a());
+					//        a(new MinecraftKey("minecraft:float_range"), net.minecraft.server.v1_13_R2.ArgumentCriterionValue.a.class, new net.minecraft.server.v1_13_R2.ArgumentCriterionValue.a.a());
+
+					//     for each parameter:
+					//     String : parameter name
+					StringSerializer.writeVarIntUTF8String(serializer, prefix+"("+flag+")");
+					System.out.println("Generating overload:" + prefix+names.get(j)+"("+flag+")");
+
+					flag = flag| (0x100000);
+					//     LEint : messed-up-flag*
+					if (j==0) {
+						flag = ARG_TYPE_STRING | 0x100000;
+					} else if (j==1) {
+							flag = ARG_TYPE_RAWTEXT | 0x100000;
+					} else if (j==2) {
+								flag = ARG_TYPE_POSITION | 0x100000;
+					} else if (j==3) {
+									flag = ARG_TYPE_FLOAT | 0x100000;
+					}
+					serializer.writeIntLE(flag);
+					//     byte : is optional (1 = true, 0 = false)
+					// should probably look at *next* node
+//					serializer.writeByte(isLast.get(j) ? 1 : 0);
+					serializer.writeByte(0);
+
+					//     byte : flags (?) -- always 0 in Nukkit
+					serializer.writeByte(0);
+				}
 
 			}
 		}
@@ -363,6 +564,8 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		//    public static final int ARG_TYPE_RAWTEXT = 35;
 		//    public static final int ARG_TYPE_JSON = 38;
 		//    public static final int ARG_TYPE_COMMAND = 45;
+
+		// any other value, like 25 is shown as "unknown"
 
 
 		// Write softEnums
