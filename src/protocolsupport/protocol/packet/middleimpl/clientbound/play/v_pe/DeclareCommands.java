@@ -38,7 +38,6 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	// PE argument types that we use. These do not match values used by Nukkit, since they did
 	// not work for us. Reason for this is unclear. Manu different values produced seemingly
 	// the same data type in the PE client chat GUI. Documented here for posterity:
-
 	// 8-13 target (with wildcard)
 	// 14-17 file path
 	// 18-26 "unknown"
@@ -48,45 +47,19 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	// 34-36 text
 	// 37-43 json
 	// 44-... ? (tested up to 99) command
-
-
 	public static final int ARG_TYPE_INT = 1;
 	public static final int ARG_TYPE_FLOAT = 2;
 	public static final int ARG_TYPE_TARGET = 6;
-
 	public static final int ARG_TYPE_STRING = 27;
-	public static final int ARG_TYPE_POSITION = 30;
+	public static final int ARG_TYPE_POSITION = 29;
+	public static final int ARG_TYPE_MESSAGE = 32;
+	// Not sure if we will need these..?
+	public static final int ARG_TYPE_RAWTEXT = 34;
+	public static final int ARG_TYPE_JSON = 37;
+	public static final int ARG_TYPE_COMMAND = 44;
 
-	public static final int ARG_TYPE_MESSAGE = 33;
-	public static final int ARG_TYPE_RAWTEXT = 35;
-	public static final int ARG_TYPE_JSON = 38;
-	public static final int ARG_TYPE_COMMAND = 45;
-
-	// 0 unknown
-	//     public static final int ARG_TYPE_INT = 1;
-	//    public static final int ARG_TYPE_FLOAT = 2;
-	//    public static final int ARG_TYPE_VALUE = 3;
-	//    public static final int ARG_TYPE_WILDCARD_INT = 4;
-	//    public static final int ARG_TYPE_OPERATOR = 5;
-	//    public static final int ARG_TYPE_TARGET = 6;
-	//    public static final int ARG_TYPE_WILDCARD_TARGET = 7;
-	// 8-13 wildcard target
-	// 14-17 file path
-	//    public static final int ARG_TYPE_FILE_PATH = 15;
-	// 18 unknown-26
-	//    public static final int ARG_TYPE_INT_RANGE = 19; FEL UNKNOWN
-	// 27 string
-	//    public static final int ARG_TYPE_STRING = 28; också..?
-	// 29-31 pos xyz
-	//    public static final int ARG_TYPE_POSITION = 30;
-	// 32 msg
-	//    public static final int ARG_TYPE_MESSAGE = 33;
-	// 34-36 text
-	//    public static final int ARG_TYPE_RAWTEXT = 35;
-	// 37-43 json
-	//    public static final int ARG_TYPE_JSON = 38;
-	// 44 cmnd--99
-	//    public static final int ARG_TYPE_COMMAND = 45;
+	public static final int ARG_FLAG_VALID = 0x100000;
+	public static final int ARG_FLAG_ENUM = 0x200000;
 
 	private CommandNode[] allNodes;
 	private int rootNodeIndex;
@@ -145,8 +118,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		}
 	}
 
-
-		@Override
+	@Override
 	public void readFromServerData(ByteBuf from) {
 		// In theory, we could read this in the superclass. However, right now only PE needs this data, so save us
 		// the trouble of parsing it for everyone else by doing it here.
@@ -277,16 +249,16 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		} else if (pcVariableName.equals("minecraft:float_range")) {
 			peVariableCode = ARG_TYPE_FLOAT;
 		} else if (pcVariableName.equals("minecraft:block_pos")) {
-			peVariableCode = 29;
+			// FIXME: Not sure this is correct.
+			peVariableCode = ARG_TYPE_POSITION;
 		} else if (pcVariableName.equals("minecraft:vec3")) {
-			peVariableCode = 29;
+			peVariableCode = ARG_TYPE_POSITION;
 		} else if (pcVariableName.equals("minecraft:entity")) {
 			peVariableCode = ARG_TYPE_TARGET;
 		} else if (pcVariableName.equals("minecraft:message")) {
-			peVariableCode = 32;
+			peVariableCode = ARG_TYPE_MESSAGE;
 		} else {
-			// Tried 34 before, but that "swallows" everything to the end of the line
-			// instead, use string
+			// Tried ARG_TYPE_RAWTEXT before, but that "swallows" everything to the end of the line
 			peVariableCode = ARG_TYPE_STRING;
 		}
 
@@ -326,22 +298,16 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		}
 
 		// Convert enumIndex to proper array per index
-
 		String[] enumArray = new String[enumIndex.size()];
 		for (Map.Entry<String, Integer> entry : enumIndex.entrySet()) {
 			enumArray[entry.getValue()] = entry.getKey();
 		}
 
-		System.out.println("enum array length:" + enumArray.length);
-		for (int i = 0; i  < enumArray.length; i++) {
-			System.out.println("enum: " + i + ": " + enumArray[i]);
-		}
-
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.TAB_COMPLETE);
-		// Write enumValues, a way to number strings
-		// size
-		VarNumberSerializer.writeVarInt(serializer, enumArray.length);
 
+		// Write enumValues, a way to number strings
+		// First size
+		VarNumberSerializer.writeVarInt(serializer, enumArray.length);
 		// then one string per index
 		for (String s : enumArray) {
 			StringSerializer.writeVarIntUTF8String(serializer, s);
@@ -352,18 +318,10 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 		// Write cmdEnums, a way to group the enumValues that can be refered to from
 		// aliases, or from parameter types.
+
 		// We have a 1-to-1 match between enums and enumGroups.
-		// size
-		System.out.println("IN TOTAL ENUMS: " + enumArray.length);
-		VarNumberSerializer.writeVarInt(serializer, enumArray.length);
-		for (int i = 0; i < enumArray.length; i++) {
-			// Ignore name
-			StringSerializer.writeVarIntUTF8String(serializer, enumArray[i] + "Enum");
-			// Number of enums in group, always just 1.
-			VarNumberSerializer.writeVarInt(serializer, 1);
-//			serializer.writeByte(i);
-			serializer.writeShortLE(i);
-		}
+		// First size
+		writeEnumGroups(serializer, enumArray);
 
 		// Now process the actual commands. Write on per top-level ("command") node.
 		VarNumberSerializer.writeVarInt(serializer, getNumTopLevelNodes());
@@ -371,7 +329,6 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		for (int i = 0; i < getNumTopLevelNodes(); i++) {
 			CommandNode node = getTopLevelNode(i);
 
-			System.out.println("NOW DOING COMMAND  " + node.name);
 			StringSerializer.writeVarIntUTF8String(serializer, node.name);
 			// PC does not have any description, so just send an empty string
 			StringSerializer.writeVarIntUTF8String(serializer, "");
@@ -383,146 +340,67 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 			// Write out all "overloads", i.e. all different ways to call this command with arguments.
 			List<List<PECommandNode>> overloads = allOverloads.get(i);
+
+			// First write number of overloads for this command
 			VarNumberSerializer.writeVarInt(serializer, overloads.size());
 
 			for (List<PECommandNode> overload : overloads) {
-				System.out.println("new overload, with num args: " + overload.size());
+				// For this overload, first write number of arguments
 				VarNumberSerializer.writeVarInt(serializer, overload.size());
 
 				for (PECommandNode peNode : overload) {
-					int flag;
-					if (peNode.argType != null) {
-						// VARIABLE
-						StringSerializer.writeVarIntUTF8String(serializer, peNode.name);
-						flag = getPeVariableCode(peNode.argType) | 0x100000;
-
-						System.out.println("variable: " + peNode.name);
-					} else {
-						// LITERAL
-						StringSerializer.writeVarIntUTF8String(serializer, "'" + peNode.name + "'");
-
-						// In theory, this is the index into the enumGroups, but we have the same index
-						// to our single enum.
-						int index = peNode.nameIndex;
-						flag = index | 0x100000 | 0x200000;
-
-						System.out.println("literal: " + peNode.name);
-					}
-					serializer.writeIntLE(flag);
-					//     byte : is optional (1 = true, 0 = false)
-					serializer.writeByte(0);
-					serializer.writeByte(0); // Flags? Always 0.
+					writePeNode(serializer, peNode);
 				}
 			}
-/*
-			System.out.println("ALL overloads for " + node.name + " in total " + overloads.size());
-			for (List<Integer> overload : overloads) {
-				String argsString = "";
-				for (Integer index : overload) {
-					if (index >= (enumIndex.size()-20)) {
-						index = 1;
-					}
-
-					// For enums, name does not matter?
-					StringSerializer.writeVarIntUTF8String(serializer, "");
-
-					String arg = enumArray[index];
-					argsString += arg + " ";
-				}
-				System.out.println(" * " + argsString);
-			} */
-
-			/*
-
-			// we must always have a void overload, and our hack tried to make a single
-			// overload from first child otherwise
-			VarNumberSerializer.writeVarInt(serializer, 1);
-
-			LinkedList<String> names = new LinkedList<>();
-			LinkedList<String> argTypes = new LinkedList<>();
-			LinkedList<Boolean> isLast = new LinkedList<>();
-
-
-			while (node.children.length > 0) {
-				// just get first node
-				node = allNodes[node.children[0]];
-				if (node.argType != null) {
-					// it's an argument type, use it
-					names.add(node.name);
-					argTypes.add(node.argType);
-				} else {
-					names.add(node.name);
-					argTypes.add("LITERAL");
-				}
-				isLast.add(node.isPathEnd);
-			}
-
-			// --- VarInt : length of parameters
-			VarNumberSerializer.writeVarInt(serializer, names.size());
-			for (int j = 0; j < names.size(); j++) {
-
-				String argType = argTypes.get(j);
-				int flag;
-				if (argType.equals("LITERAL")) {
-					flag = 27;
-				} else if (argType.equals("brigadier:bool")) {
-					flag = 27;
-				} else if (argType.equals("brigadier:float")) {
-					flag = ARG_TYPE_FLOAT;
-				} else if (argType.equals("brigadier:double")) {
-					flag = ARG_TYPE_FLOAT;
-				} else if (argType.equals("brigadier:integer")) {
-					flag = ARG_TYPE_INT;
-				} else if (argType.equals("brigadier:string")) {
-					flag = 27;
-				} else if (argType.equals("minecraft:int_range")) {
-					flag = ARG_TYPE_INT;
-				} else if (argType.equals("minecraft:float_range")) {
-					flag = ARG_TYPE_FLOAT;
-				} else if (argType.equals("minecraft:block_pos")) {
-					flag = 29;
-				} else if (argType.equals("minecraft:vec3")) {
-					flag = 29;
-				} else if (argType.equals("minecraft:entity")) {
-					flag = ARG_TYPE_TARGET;
-				} else if (argType.equals("minecraft:message")) {
-					flag = 32;
-				} else {
-					flag = 34;
-				}
-
-				if (argType.equals("LITERAL")) {
-					StringSerializer.writeVarIntUTF8String(serializer, "'" + names.get(j) + "'");
-					Integer index = enumIndex.get(names.get(j));
-					int index2 = index;
-					System.out.println("fuck is this: " + index + " but " + index2);
-					if (index2 < (enumIndex.size()-20)) {
-						System.out.println("processing literal " + names.get(j) + " at index " + index2 + ", found:" + enumArray[index2]);
-					} else {
-						index2 = 1;
-						System.out.println("SKIPPING literal " + names.get(j) + " at index " + index2);
-					}
-					flag = index2 | 0x200000;
-				} else {
-					StringSerializer.writeVarIntUTF8String(serializer, names.get(j));
-					System.out.println("processing variabl " + names.get(j) + " with flags " + flag);
-				}
-
-				//     public static final int ARG_FLAG_VALID = 0x100000;
-				//    public static final int ARG_FLAG_ENUM = 0x200000;
-				flag = flag | 0x100000;
-				serializer.writeIntLE(flag);
-				//     byte : is optional (1 = true, 0 = false)
-				serializer.writeByte(0);
-				serializer.writeByte(0); // Flags? Always 0.
-			}
-			*/
 		}
 
 		// Write "soft enums". Start with the count. We don't have any, so ignore the structure.
 		VarNumberSerializer.writeVarInt(serializer, 0);
 
 		return serializer;
+	}
+
+	private void writePeNode(ClientBoundPacketData serializer, PECommandNode peNode) {
+		int flag;
+		if (peNode.argType != null) {
+			// VARIABLE
+			StringSerializer.writeVarIntUTF8String(serializer, peNode.name);
+			flag = getPeVariableCode(peNode.argType) | ARG_FLAG_VALID;
+		} else {
+			// LITERAL
+			StringSerializer.writeVarIntUTF8String(serializer, "'" + peNode.name + "'");
+
+			// In theory, this is the index into the enumGroups, but we have the same index
+			// to our single enum so we can use that without conversion.
+			int index = peNode.nameIndex;
+			flag = index | ARG_FLAG_VALID | ARG_FLAG_ENUM;
+		}
+		serializer.writeIntLE(flag);
+		//     byte : is optional (1 = true, 0 = false)
+		serializer.writeByte(0);
+		serializer.writeByte(0); // Flags? Always 0.
+	}
+
+	private void writeEnumGroups(ClientBoundPacketData serializer, String[] enumArray) {
+		VarNumberSerializer.writeVarInt(serializer, enumArray.length);
+		for (int i = 0; i < enumArray.length; i++) {
+			// Ignore name
+			StringSerializer.writeVarIntUTF8String(serializer, enumArray[i] + "Enum");
+			// Number of enums in group, always just 1.
+			VarNumberSerializer.writeVarInt(serializer, 1);
+			// Serialize enum index by using minimal data type
+			writeSingleEnum(serializer, i, enumArray.length);
+		}
+	}
+
+	private void writeSingleEnum(ClientBoundPacketData serializer, int value, int maxValue) {
+		if (maxValue < 256) {
+			serializer.writeByte(value);
+		} else if (maxValue < 65536) {
+			serializer.writeShortLE(value);
+		} else {
+			serializer.writeIntLE(value);
+		}
 	}
 
 	@Override
@@ -534,6 +412,8 @@ public class DeclareCommands extends MiddleDeclareCommands {
 /*
 TODO:
 fix aliases. PC has redirect, PE has an EnumSet as alias.
+
+add proper value for "optional" flag.
 
 It could be that these Enums correspond to special types..?
 NAME: itemType
@@ -551,6 +431,8 @@ Enum writer:
         } else {
             indexWriter = WRITE_INT; -- this is LE int!!!
         }
+
+Idea: transform brigadier:bool to enum group "true|false". Maybe use soft enum for this?
  */
 
 /*
