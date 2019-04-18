@@ -35,20 +35,26 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	private static final byte FLAG_ENTITY_AMOUNT_IS_SINGLE = 1;
 	private static final byte FLAG_ENTITY_TYPE_IS_PLAYER = 2;
 
-	// PE argument types
+	// PE argument types that we use. These do not match values used by Nukkit, since they did
+	// not work for us. Reason for this is unclear. Manu different values produced seemingly
+	// the same data type in the PE client chat GUI. Documented here for posterity:
+
+	// 8-13 target (with wildcard)
+	// 14-17 file path
+	// 18-26 "unknown"
+	// 27-28 string
+	// 29-31 position ("x y z")
+	// 32-33 message
+	// 34-36 text
+	// 37-43 json
+	// 44-... ? (tested up to 99) command
+
+
 	public static final int ARG_TYPE_INT = 1;
 	public static final int ARG_TYPE_FLOAT = 2;
-	public static final int ARG_TYPE_VALUE = 3;
-	public static final int ARG_TYPE_WILDCARD_INT = 4;
-	public static final int ARG_TYPE_OPERATOR = 5;
 	public static final int ARG_TYPE_TARGET = 6;
-	public static final int ARG_TYPE_WILDCARD_TARGET = 7;
 
-	public static final int ARG_TYPE_FILE_PATH = 15;
-
-	public static final int ARG_TYPE_INT_RANGE = 19;
-
-	public static final int ARG_TYPE_STRING = 28;
+	public static final int ARG_TYPE_STRING = 27;
 	public static final int ARG_TYPE_POSITION = 30;
 
 	public static final int ARG_TYPE_MESSAGE = 33;
@@ -257,7 +263,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	private int getPeVariableCode(String pcVariableName) {
 		int peVariableCode;
 		if (pcVariableName.equals("brigadier:bool")) {
-			peVariableCode = 27;
+			peVariableCode = ARG_TYPE_STRING;
 		} else if (pcVariableName.equals("brigadier:float")) {
 			peVariableCode = ARG_TYPE_FLOAT;
 		} else if (pcVariableName.equals("brigadier:double")) {
@@ -265,7 +271,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		} else if (pcVariableName.equals("brigadier:integer")) {
 			peVariableCode = ARG_TYPE_INT;
 		} else if (pcVariableName.equals("brigadier:string")) {
-			peVariableCode = 27;
+			peVariableCode = ARG_TYPE_STRING;
 		} else if (pcVariableName.equals("minecraft:int_range")) {
 			peVariableCode = ARG_TYPE_INT;
 		} else if (pcVariableName.equals("minecraft:float_range")) {
@@ -279,7 +285,9 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		} else if (pcVariableName.equals("minecraft:message")) {
 			peVariableCode = 32;
 		} else {
-			peVariableCode = 34;
+			// Tried 34 before, but that "swallows" everything to the end of the line
+			// instead, use string
+			peVariableCode = ARG_TYPE_STRING;
 		}
 
 		return peVariableCode;
@@ -318,11 +326,10 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		}
 
 		// Convert enumIndex to proper array per index
-		String[] enumArray = new String[enumIndex.size()-20];
+
+		String[] enumArray = new String[enumIndex.size()];
 		for (Map.Entry<String, Integer> entry : enumIndex.entrySet()) {
-			if (entry.getValue() < enumIndex.size()-20) {
-				enumArray[entry.getValue()] = entry.getKey();
-			}
+			enumArray[entry.getValue()] = entry.getKey();
 		}
 
 		System.out.println("enum array length:" + enumArray.length);
@@ -354,8 +361,8 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			StringSerializer.writeVarIntUTF8String(serializer, enumArray[i] + "Enum");
 			// Number of enums in group, always just 1.
 			VarNumberSerializer.writeVarInt(serializer, 1);
-			serializer.writeByte(i);
-			//serializer.writeShort(i);
+//			serializer.writeByte(i);
+			serializer.writeShortLE(i);
 		}
 
 		// Now process the actual commands. Write on per top-level ("command") node.
@@ -397,9 +404,6 @@ public class DeclareCommands extends MiddleDeclareCommands {
 						// In theory, this is the index into the enumGroups, but we have the same index
 						// to our single enum.
 						int index = peNode.nameIndex;
-						if (index >= (enumIndex.size()-20)) {
-							index = 1;
-						}
 						flag = index | 0x100000 | 0x200000;
 
 						System.out.println("literal: " + peNode.name);
@@ -543,9 +547,9 @@ Enum writer:
         if (enumValues.size() < 256) {
             indexWriter = WRITE_BYTE;
         } else if (enumValues.size() < 65536) {
-            indexWriter = WRITE_SHORT;
+            indexWriter = WRITE_SHORT; -- this is LE short!!!
         } else {
-            indexWriter = WRITE_INT;
+            indexWriter = WRITE_INT; -- this is LE int!!!
         }
  */
 
