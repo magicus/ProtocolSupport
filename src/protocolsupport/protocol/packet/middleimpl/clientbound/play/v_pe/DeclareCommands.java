@@ -122,6 +122,10 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		}
 	}
 
+	public static class PECommandsStructure {
+
+	}
+
 	@Override
 	public void readFromServerData(ByteBuf from) {
 		// In theory, we could read this in the superclass. However, right now only PE needs this data, so save us
@@ -281,9 +285,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	}
 
 	public ClientBoundPacketData create() {
-		transformToPEStructure();
-
-		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.TAB_COMPLETE);
+		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.AVAILABLE_COMMANDS);
 
 		// Write enumValues, a way to number strings
 		// First size
@@ -298,9 +300,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 		// Write cmdEnums, a way to group the enumValues that can be refered to from
 		// aliases, or from parameter types.
-
 		// We have a 1-to-1 match between enums and enumGroups.
-		// First size
 		writeEnumGroups(serializer, enumArray);
 
 		// Now process the actual commands. Write on per top-level ("command") node.
@@ -369,7 +369,9 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			flag = getPeVariableCode(peNode.argType) | ARG_FLAG_VALID;
 		} else {
 			// LITERAL
-			StringSerializer.writeVarIntUTF8String(serializer, "'" + peNode.name + "'");
+			// The literal arguments also has a "name", but it's not used, so leave it empty.
+			// (The actual value shown in the GUI is from the enum group)
+			StringSerializer.writeVarIntUTF8String(serializer, "");
 
 			// In theory, this is the index into the enumGroups, but we have the same index
 			// to our single enum so we can use that without conversion.
@@ -383,10 +385,11 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	}
 
 	private void writeEnumGroups(ClientBoundPacketData serializer, String[] enumArray) {
+		// First size
 		VarNumberSerializer.writeVarInt(serializer, enumArray.length);
 		for (int i = 0; i < enumArray.length; i++) {
-			// Ignore name
-			StringSerializer.writeVarIntUTF8String(serializer, enumArray[i] + "Enum");
+			// Enum groups have a "name". It is never used, but needs to be unique.
+			StringSerializer.writeVarIntUTF8String(serializer, "e" + i);
 			// Number of enums in group, always just 1.
 			VarNumberSerializer.writeVarInt(serializer, 1);
 			// Serialize enum index by using minimal data type
@@ -406,6 +409,8 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 	@Override
 	public RecyclableCollection<ClientBoundPacketData> toData() {
+		transformToPEStructure();
+
 		return RecyclableSingletonList.create(create());
 	}
 }
@@ -424,14 +429,6 @@ NAME: enchantmentType
 values.size(): 0
 
 Does Enum work with empty names, or do they need to be unique?
-Enum writer:
-        if (enumValues.size() < 256) {
-            indexWriter = WRITE_BYTE;
-        } else if (enumValues.size() < 65536) {
-            indexWriter = WRITE_SHORT; -- this is LE short!!!
-        } else {
-            indexWriter = WRITE_INT; -- this is LE int!!!
-        }
 
 Idea: transform brigadier:bool to enum group "true|false". Maybe use soft enum for this?
  */
