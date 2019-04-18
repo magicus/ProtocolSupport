@@ -28,15 +28,17 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	private static final byte FLAG_HAS_MIN_VALUE = 1;
 	private static final byte FLAG_HAS_MAX_VALUE = 2;
 
+	// Different kinds of string types. Not used here; documented for posterity.
 	private static final byte STRING_IS_WORD = 1;
 	private static final byte STRING_IS_PHRASE = 2;
 	private static final byte STRING_IS_GREEDY = 3;
 
+	// Flags for different kinds of entities. Not used here; documented for posterity.
 	private static final byte FLAG_ENTITY_AMOUNT_IS_SINGLE = 1;
 	private static final byte FLAG_ENTITY_TYPE_IS_PLAYER = 2;
 
 	// PE argument types that we use. These do not match values used by Nukkit, since they did
-	// not work for us. Reason for this is unclear. Manu different values produced seemingly
+	// not work for us. The reason for this is unclear. Many different values produced seemingly
 	// the same data type in the PE client chat GUI. Documented here for posterity:
 	// 8-13 target (with wildcard)
 	// 14-17 file path
@@ -63,6 +65,8 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 	private CommandNode[] allNodes;
 	private int rootNodeIndex;
+	private String[] enumArray;
+	private List<List<List<PECommandNode>>> allOverloads;
 
 	public DeclareCommands(ConnectionImpl connection) {
 		super(connection);
@@ -155,6 +159,8 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			suggestion = null;
 		} else if ((flags & FLAG_IS_ARGUMENT) != 0) {
 			name = StringSerializer.readVarIntUTF8String(from);
+			// This is slightly lossy; some arg types has extra information that we throw away
+			// To properly encode that, we'd need a specialized class, not a string.
 			argType = readArgType(from);
 
 			if ((flags & FLAG_HAS_SUGGESTION) != 0) {
@@ -175,40 +181,34 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		String argType = StringSerializer.readVarIntUTF8String(from);
 		// Depending on argType, there might be additional data.
 		// At this point, we're just throwing this away, but we need at least
-		// skip over it.
+		// skip over it in the buffer.
 
 		if (argType.equals("brigadier:string")) {
 			// Determine kind of string, any of STRING_IS_*...
 			int stringType = VarNumberSerializer.readVarInt(from);
 		} else if (argType.equals("brigadier:integer")) {
 			byte flag = from.readByte();
-			int min = -2147483648;
-			int max = 2147483647;
 			if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
-				min = from.readInt();
+				int min = from.readInt();
 			}
 			if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
-				max = from.readInt();
+				int max = from.readInt();
 			}
 		} else if (argType.equals("brigadier:float")) {
 			byte flag = from.readByte();
-			float min = -3.4028235E38F;
-			float max = 3.4028235E38F;
 			if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
-				min = from.readFloat();
+				float min = from.readFloat();
 			}
 			if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
-				max = from.readFloat();
+				float max = from.readFloat();
 			}
 		} else if (argType.equals("brigadier:double")) {
 			byte flag = from.readByte();
-			double min = -3.4028235E38F;
-			double max = 3.4028235E38F;
 			if ((flag & FLAG_HAS_MIN_VALUE) != 0) {
-				min = from.readDouble();
+				double min = from.readDouble();
 			}
 			if ((flag & FLAG_HAS_MAX_VALUE) != 0) {
-				max = from.readDouble();
+				double max = from.readDouble();
 			}
 		} else if (argType.equals("minecraft:entity")) {
 			// The flag determines the amount (single or double) and type (players or entities)
@@ -218,7 +218,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			// The "multiple" boolean is true if multiple, false if single.
 			byte multiple = from.readByte();
 		} else {
-			// For all other types, there is no additional data
+			// For all other types, there are no additional data. This might change in future versions of Minecraft.
 		}
 		return argType;
 	}
@@ -233,37 +233,34 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	}
 
 	private int getPeVariableCode(String pcVariableName) {
-		int peVariableCode;
-		if (pcVariableName.equals("brigadier:bool")) {
-			peVariableCode = ARG_TYPE_STRING;
-		} else if (pcVariableName.equals("brigadier:float")) {
-			peVariableCode = ARG_TYPE_FLOAT;
-		} else if (pcVariableName.equals("brigadier:double")) {
-			peVariableCode = ARG_TYPE_FLOAT;
-		} else if (pcVariableName.equals("brigadier:integer")) {
-			peVariableCode = ARG_TYPE_INT;
-		} else if (pcVariableName.equals("brigadier:string")) {
-			peVariableCode = ARG_TYPE_STRING;
-		} else if (pcVariableName.equals("minecraft:int_range")) {
-			peVariableCode = ARG_TYPE_INT;
-		} else if (pcVariableName.equals("minecraft:float_range")) {
-			peVariableCode = ARG_TYPE_FLOAT;
-		} else if (pcVariableName.equals("minecraft:block_pos")) {
-			// FIXME: Not sure this is correct.
-			peVariableCode = ARG_TYPE_POSITION;
-		} else if (pcVariableName.equals("minecraft:vec3")) {
-			peVariableCode = ARG_TYPE_POSITION;
-		} else if (pcVariableName.equals("minecraft:entity")) {
-			peVariableCode = ARG_TYPE_TARGET;
-		} else if (pcVariableName.equals("minecraft:message")) {
-			peVariableCode = ARG_TYPE_MESSAGE;
-		} else {
-			// Tried ARG_TYPE_RAWTEXT before, but that "swallows" everything to the end of the line
-			peVariableCode = ARG_TYPE_STRING;
-		}
 
-		return peVariableCode;
+		if (pcVariableName.equals("brigadier:bool")) {
+			return ARG_TYPE_STRING;
+		} else if (pcVariableName.equals("brigadier:float")) {
+			return ARG_TYPE_FLOAT;
+		} else if (pcVariableName.equals("brigadier:double")) {
+			return ARG_TYPE_FLOAT;
+		} else if (pcVariableName.equals("brigadier:integer")) {
+			return ARG_TYPE_INT;
+		} else if (pcVariableName.equals("brigadier:string")) {
+			return ARG_TYPE_STRING;
+		} else if (pcVariableName.equals("minecraft:int_range")) {
+			return ARG_TYPE_INT;
+		} else if (pcVariableName.equals("minecraft:float_range")) {
+			return ARG_TYPE_FLOAT;
+		} else if (pcVariableName.equals("minecraft:vec3")) {
+			return ARG_TYPE_POSITION;
+		} else if (pcVariableName.equals("minecraft:entity")) {
+			return ARG_TYPE_TARGET;
+		} else if (pcVariableName.equals("minecraft:message")) {
+			return ARG_TYPE_MESSAGE;
+		} else {
+			// We have a specialized type in PC which has no correspondance in PE. Sucks!
+			// Tried ARG_TYPE_RAWTEXT before, but that "swallows" everything to the end of the line
+			return ARG_TYPE_STRING;
+		}
 	}
+
 	void walkNode(List<List<PECommandNode>> overloads, Map<String, Integer> enumIndex, CommandNode currentNode, List<CommandNode> previousNodes) {
 		if (currentNode.isLeaf()) {
 			List<PECommandNode> newOverload = new ArrayList<>();
@@ -278,30 +275,13 @@ public class DeclareCommands extends MiddleDeclareCommands {
 				CommandNode childNode = allNodes[childNodeIndex];
 				List<CommandNode> nodes = new ArrayList<>(previousNodes);
 				nodes.add(childNode);
-
-				walkNode(overloads, enumIndex, childNode, new ArrayList<>(nodes));
+				walkNode(overloads, enumIndex, childNode, nodes);
 			}
 		}
 	}
 
 	public ClientBoundPacketData create() {
-		// Convert to flat PE structure
-		Map<String, Integer> enumIndex = new HashMap<>();
-		List<List<List<PECommandNode>>> allOverloads = new ArrayList<>(getNumTopLevelNodes());
-		for (int i = 0; i < getNumTopLevelNodes(); i++) {
-			CommandNode node = getTopLevelNode(i);
-
-			List<List<PECommandNode>> overloads = new ArrayList<>();
-				// HashSet<ArrayList<String>>();
-			walkNode(overloads, enumIndex, node, new ArrayList<>());
-			allOverloads.add(overloads);
-		}
-
-		// Convert enumIndex to proper array per index
-		String[] enumArray = new String[enumIndex.size()];
-		for (Map.Entry<String, Integer> entry : enumIndex.entrySet()) {
-			enumArray[entry.getValue()] = entry.getKey();
-		}
+		transformToPEStructure();
 
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.TAB_COMPLETE);
 
@@ -358,6 +338,27 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		VarNumberSerializer.writeVarInt(serializer, 0);
 
 		return serializer;
+	}
+
+	private void transformToPEStructure() {
+		// Collect mapping of enum string values to integers in enumIndex
+		Map<String, Integer> enumIndex = new HashMap<>();
+
+		allOverloads = new ArrayList<>(getNumTopLevelNodes());
+		for (int i = 0; i < getNumTopLevelNodes(); i++) {
+			CommandNode node = getTopLevelNode(i);
+
+			List<List<PECommandNode>> overloads = new ArrayList<>();
+				// HashSet<ArrayList<String>>();
+			walkNode(overloads, enumIndex, node, new ArrayList<>());
+			allOverloads.add(overloads);
+		}
+
+		// Convert enumIndex to proper array per index
+		enumArray = new String[enumIndex.size()];
+		for (Map.Entry<String, Integer> entry : enumIndex.entrySet()) {
+			enumArray[entry.getValue()] = entry.getKey();
+		}
 	}
 
 	private void writePeNode(ClientBoundPacketData serializer, PECommandNode peNode) {
