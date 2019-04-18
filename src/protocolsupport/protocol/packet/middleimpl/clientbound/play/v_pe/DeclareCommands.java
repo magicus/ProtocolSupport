@@ -12,7 +12,10 @@ import protocolsupport.utils.Utils;
 import protocolsupport.utils.recyclable.RecyclableCollection;
 import protocolsupport.utils.recyclable.RecyclableSingletonList;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class DeclareCommands extends MiddleDeclareCommands {
 
@@ -107,9 +110,26 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		public String toString() {
 			return Utils.toStringAllFields(this);
 		}
+
+		public boolean isLeaf() {
+			return this.children.length == 0;
+		}
 	}
 
-	@Override
+	public static class PECommandNode {
+		private String name;
+		private String argType;
+		private int nameIndex;
+
+		public PECommandNode(String name, String argType, int nameIndex) {
+			this.name = name;
+			this.argType = argType;
+			this.nameIndex = nameIndex;
+		}
+	}
+
+
+		@Override
 	public void readFromServerData(ByteBuf from) {
 		// In theory, we could read this in the superclass. However, right now only PE needs this data, so save us
 		// the trouble of parsing it for everyone else by doing it here.
@@ -123,6 +143,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 		rootNodeIndex = VarNumberSerializer.readVarInt(from);
 	}
+
 	private CommandNode readCommandNode(ByteBuf from) {
 		byte flags = from.readByte();
 		boolean isPathEnd;
@@ -213,51 +234,135 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		return argType;
 	}
 
-	private int getTopLevelNodes() {
+	private int getNumTopLevelNodes() {
 		return allNodes[rootNodeIndex].children.length;
 	}
 
 	private CommandNode getTopLevelNode(int index) {
-		int[] topLevelNodes = allNodes[rootNodeIndex].children;
-		return allNodes[topLevelNodes[index]];
+		int[] topLevelNodeIndices = allNodes[rootNodeIndex].children;
+		return allNodes[topLevelNodeIndices[index]];
+	}
+
+	private int getPeVariableCode(String pcVariableName) {
+		int peVariableCode;
+		if (pcVariableName.equals("brigadier:bool")) {
+			peVariableCode = 27;
+		} else if (pcVariableName.equals("brigadier:float")) {
+			peVariableCode = ARG_TYPE_FLOAT;
+		} else if (pcVariableName.equals("brigadier:double")) {
+			peVariableCode = ARG_TYPE_FLOAT;
+		} else if (pcVariableName.equals("brigadier:integer")) {
+			peVariableCode = ARG_TYPE_INT;
+		} else if (pcVariableName.equals("brigadier:string")) {
+			peVariableCode = 27;
+		} else if (pcVariableName.equals("minecraft:int_range")) {
+			peVariableCode = ARG_TYPE_INT;
+		} else if (pcVariableName.equals("minecraft:float_range")) {
+			peVariableCode = ARG_TYPE_FLOAT;
+		} else if (pcVariableName.equals("minecraft:block_pos")) {
+			peVariableCode = 29;
+		} else if (pcVariableName.equals("minecraft:vec3")) {
+			peVariableCode = 29;
+		} else if (pcVariableName.equals("minecraft:entity")) {
+			peVariableCode = ARG_TYPE_TARGET;
+		} else if (pcVariableName.equals("minecraft:message")) {
+			peVariableCode = 32;
+		} else {
+			peVariableCode = 34;
+		}
+
+		return peVariableCode;
+	}
+	void walkNode(List<List<PECommandNode>> overloads, Map<String, Integer> enumIndex, CommandNode currentNode, List<CommandNode> previousNodes) {
+		if (currentNode.isLeaf()) {
+			List<PECommandNode> newOverload = new ArrayList<>();
+			for (CommandNode node : previousNodes) {
+				// FIXME: We should really add all PE data here
+				Integer enumPos = enumIndex.get(node.name);
+				int index;
+				if (enumPos == null) {
+					index = enumIndex.size();
+					enumIndex.put(node.name, index);
+				} else {
+					index = enumPos;
+				}
+				PECommandNode peNode = new PECommandNode(node.name, node.argType, index);
+				newOverload.add(peNode);
+			}
+			overloads.add(newOverload);
+		} else {
+			for (int i = 0; i < currentNode.children.length; i++) {
+				int childNodeIndex = currentNode.children[i];
+				CommandNode childNode = allNodes[childNodeIndex];
+				List<CommandNode> nodes = new ArrayList<>(previousNodes);
+				nodes.add(childNode);
+
+				walkNode(overloads, enumIndex, childNode, new ArrayList<>(nodes));
+			}
+		}
 	}
 
 	public ClientBoundPacketData create() {
+		// Convert to flat PE structure
+		Map<String, Integer> enumIndex = new HashMap<>();
+		List<List<List<PECommandNode>>> allOverloads = new ArrayList<>(getNumTopLevelNodes());
+		for (int i = 0; i < getNumTopLevelNodes(); i++) {
+			CommandNode node = getTopLevelNode(i);
+
+			List<List<PECommandNode>> overloads = new ArrayList<>();
+				// HashSet<ArrayList<String>>();
+			walkNode(overloads, enumIndex, node, new ArrayList<>());
+			allOverloads.add(overloads);
+		}
+
+		// Convert enumIndex to proper array per index
+		String[] enumArray = new String[enumIndex.size()-20];
+		for (Map.Entry<String, Integer> entry : enumIndex.entrySet()) {
+			if (entry.getValue() < enumIndex.size()-20) {
+				enumArray[entry.getValue()] = entry.getKey();
+			}
+		}
+
+		System.out.println("enum array length:" + enumArray.length);
+		for (int i = 0; i  < enumArray.length; i++) {
+			System.out.println("enum: " + i + ": " + enumArray[i]);
+		}
+
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.TAB_COMPLETE);
 		// Write enumValues, a way to number strings
 		// size
-		VarNumberSerializer.writeVarInt(serializer, 2);
+		VarNumberSerializer.writeVarInt(serializer, enumArray.length);
 
 		// then one string per index
-		StringSerializer.writeVarIntUTF8String(serializer, "clear");
-		StringSerializer.writeVarIntUTF8String(serializer, "rain");
+		for (String s : enumArray) {
+			StringSerializer.writeVarIntUTF8String(serializer, s);
+		}
 
 		// Write "postfixes". Start with the count. We don't have any, so ignore the structure.
 		VarNumberSerializer.writeVarInt(serializer, 0);
 
 		// Write cmdEnums, a way to group the enumValues that can be refered to from
 		// aliases, or from parameter types.
+		// We have a 1-to-1 match between enums and enumGroups.
 		// size
-		VarNumberSerializer.writeVarInt(serializer, 3);
-
-		StringSerializer.writeVarIntUTF8String(serializer, "");
-		VarNumberSerializer.writeVarInt(serializer, 1);
-		serializer.writeByte(0);
-
-
-		StringSerializer.writeVarIntUTF8String(serializer, "");
-		VarNumberSerializer.writeVarInt(serializer, 1);
-		serializer.writeByte(1);
-
-		StringSerializer.writeVarIntUTF8String(serializer, "");
-		VarNumberSerializer.writeVarInt(serializer, 2);
-		serializer.writeByte(0);
-		serializer.writeByte(1);
+		System.out.println("IN TOTAL ENUMS: " + enumArray.length);
+		VarNumberSerializer.writeVarInt(serializer, enumArray.length);
+		for (int i = 0; i < enumArray.length; i++) {
+			// Ignore name
+			StringSerializer.writeVarIntUTF8String(serializer, enumArray[i] + "Enum");
+			// Number of enums in group, always just 1.
+			VarNumberSerializer.writeVarInt(serializer, 1);
+			serializer.writeByte(i);
+			//serializer.writeShort(i);
+		}
 
 		// Now process the actual commands. Write on per top-level ("command") node.
-		VarNumberSerializer.writeVarInt(serializer, getTopLevelNodes());
-		for (int i = 0; i < getTopLevelNodes(); i++) {
+		VarNumberSerializer.writeVarInt(serializer, getNumTopLevelNodes());
+
+		for (int i = 0; i < getNumTopLevelNodes(); i++) {
 			CommandNode node = getTopLevelNode(i);
+
+			System.out.println("NOW DOING COMMAND  " + node.name);
 			StringSerializer.writeVarIntUTF8String(serializer, node.name);
 			// PC does not have any description, so just send an empty string
 			StringSerializer.writeVarIntUTF8String(serializer, "");
@@ -268,6 +373,75 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			serializer.writeIntLE(-1);
 
 			// Write out all "overloads", i.e. all different ways to call this command with arguments.
+
+
+			List<List<PECommandNode>> overloads = allOverloads.get(i);
+			VarNumberSerializer.writeVarInt(serializer, overloads.size());
+
+			for (List<PECommandNode> overload : overloads) {
+				System.out.println("new overload, with num args: " + overload.size());
+				VarNumberSerializer.writeVarInt(serializer, overload.size());
+
+				for (PECommandNode peNode : overload) {
+					// In theory, this is the index into the enumGroups, but we have the same index
+					// to our single enum.
+					int index = peNode.nameIndex;
+					if (index >= (enumIndex.size()-20)) {
+						index = 1;
+					}
+					if (peNode.argType != null) {
+						// VAFRIABLE
+						StringSerializer.writeVarIntUTF8String(serializer, peNode.name);
+						//     public static final int ARG_FLAG_VALID = 0x100000;
+						//    public static final int ARG_FLAG_ENUM = 0x200000;
+//					flag = flag | 0x100000 | 0x200000;
+						int flag = getPeVariableCode(peNode.argType) | 0x100000;
+
+						serializer.writeIntLE(flag);
+						System.out.println("variable: " + peNode.name);
+					} else {
+						// LITERAL
+						StringSerializer.writeVarIntUTF8String(serializer, "'" + peNode.name + "'");
+						//     public static final int ARG_FLAG_VALID = 0x100000;
+						//    public static final int ARG_FLAG_ENUM = 0x200000;
+//					flag = flag | 0x100000 | 0x200000;
+						int flag = index | 0x100000 | 0x200000;
+
+						serializer.writeIntLE(flag);
+						System.out.println("literal: " + peNode.name);
+					}
+				//	StringSerializer.writeVarIntUTF8String(serializer,  enumArray[index] );
+					System.out.println("sending " + enumArray[index]);
+					//     public static final int ARG_FLAG_VALID = 0x100000;
+					//    public static final int ARG_FLAG_ENUM = 0x200000;
+//					flag = flag | 0x100000 | 0x200000;
+					int flag = ARG_TYPE_INT | 0x100000;
+
+			//		serializer.writeIntLE(flag);
+					//     byte : is optional (1 = true, 0 = false)
+					serializer.writeByte(0);
+					serializer.writeByte(0); // Flags? Always 0.
+				}
+			}
+/*
+			System.out.println("ALL overloads for " + node.name + " in total " + overloads.size());
+			for (List<Integer> overload : overloads) {
+				String argsString = "";
+				for (Integer index : overload) {
+					if (index >= (enumIndex.size()-20)) {
+						index = 1;
+					}
+
+					// For enums, name does not matter?
+					StringSerializer.writeVarIntUTF8String(serializer, "");
+
+					String arg = enumArray[index];
+					argsString += arg + " ";
+				}
+				System.out.println(" * " + argsString);
+			} */
+
+			/*
 
 			// we must always have a void overload, and our hack tried to make a single
 			// overload from first child otherwise
@@ -328,8 +502,19 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 				if (argType.equals("LITERAL")) {
 					StringSerializer.writeVarIntUTF8String(serializer, "'" + names.get(j) + "'");
+					Integer index = enumIndex.get(names.get(j));
+					int index2 = index;
+					System.out.println("fuck is this: " + index + " but " + index2);
+					if (index2 < (enumIndex.size()-20)) {
+						System.out.println("processing literal " + names.get(j) + " at index " + index2 + ", found:" + enumArray[index2]);
+					} else {
+						index2 = 1;
+						System.out.println("SKIPPING literal " + names.get(j) + " at index " + index2);
+					}
+					flag = index2 | 0x200000;
 				} else {
 					StringSerializer.writeVarIntUTF8String(serializer, names.get(j));
+					System.out.println("processing variabl " + names.get(j) + " with flags " + flag);
 				}
 
 				//     public static final int ARG_FLAG_VALID = 0x100000;
@@ -340,6 +525,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 				serializer.writeByte(0);
 				serializer.writeByte(0); // Flags? Always 0.
 			}
+			*/
 		}
 
 		// "Soft enums". First write number of "soft enums". We never have any, so no further data is needed.
