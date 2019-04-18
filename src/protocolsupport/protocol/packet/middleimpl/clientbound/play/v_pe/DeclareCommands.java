@@ -65,8 +65,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 	private CommandNode[] allNodes;
 	private int rootNodeIndex;
-	private String[] enumArray;
-	private List<List<List<PECommandNode>>> allOverloads;
+	private CommandNode[] topLevelNodes;
 
 	public DeclareCommands(ConnectionImpl connection) {
 		super(connection);
@@ -123,7 +122,13 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	}
 
 	public static class PECommandsStructure {
+		private String[] enumArray;
+		private Map<CommandNode, List<List<PECommandNode>>> allOverloads;
 
+		public PECommandsStructure(String[] enumArray, Map<CommandNode, List<List<PECommandNode>>> allOverloads) {
+			this.enumArray = enumArray;
+			this.allOverloads = allOverloads;
+		}
 	}
 
 	@Override
@@ -139,6 +144,15 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		}
 
 		rootNodeIndex = VarNumberSerializer.readVarInt(from);
+
+		// For convenience, store all top-level nodes in a separate array. (These correspond to the
+		// actual "commands", i.e. the first literal, like "weather").
+		int numTopLevelNodes = allNodes[rootNodeIndex].children.length;
+		int i = 0;
+		topLevelNodes = new CommandNode[numTopLevelNodes];
+		for (int index :  allNodes[rootNodeIndex].children) {
+			topLevelNodes[i++] = allNodes[index];
+		}
 	}
 
 	private CommandNode readCommandNode(ByteBuf from) {
@@ -227,15 +241,6 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		return argType;
 	}
 
-	private int getNumTopLevelNodes() {
-		return allNodes[rootNodeIndex].children.length;
-	}
-
-	private CommandNode getTopLevelNode(int index) {
-		int[] topLevelNodeIndices = allNodes[rootNodeIndex].children;
-		return allNodes[topLevelNodeIndices[index]];
-	}
-
 	private int getPeVariableCode(String pcVariableName) {
 
 		if (pcVariableName.equals("brigadier:bool")) {
@@ -265,7 +270,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		}
 	}
 
-	void walkNode(List<List<PECommandNode>> overloads, Map<String, Integer> enumIndex, CommandNode currentNode, List<CommandNode> previousNodes) {
+	private void walkNode(List<List<PECommandNode>> overloads, Map<String, Integer> enumIndex, CommandNode currentNode, List<CommandNode> previousNodes) {
 		if (currentNode.isLeaf()) {
 			List<PECommandNode> newOverload = new ArrayList<>();
 			for (CommandNode node : previousNodes) {
@@ -284,14 +289,37 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		}
 	}
 
-	public ClientBoundPacketData create() {
+	private PECommandsStructure buildPEStructure() {
+		// Collect mapping of enum string values to integers in enumIndex
+		Map<String, Integer> enumIndex = new HashMap<>();
+		String[] enumArray;
+		Map<CommandNode, List<List<PECommandNode>>> allOverloads;
+
+		allOverloads = new HashMap<>(topLevelNodes.length);
+		for (CommandNode node : topLevelNodes) {
+			List<List<PECommandNode>> overloads = new ArrayList<>();
+			// HashSet<ArrayList<String>>();
+			walkNode(overloads, enumIndex, node, new ArrayList<>());
+			allOverloads.put(node, overloads);
+		}
+
+		// Convert enumIndex to proper array per index
+		enumArray = new String[enumIndex.size()];
+		for (Map.Entry<String, Integer> entry : enumIndex.entrySet()) {
+			enumArray[entry.getValue()] = entry.getKey();
+		}
+
+		return new PECommandsStructure(enumArray, allOverloads);
+	}
+
+	public ClientBoundPacketData create(PECommandsStructure struct) {
 		ClientBoundPacketData serializer = ClientBoundPacketData.create(PEPacketIDs.AVAILABLE_COMMANDS);
 
 		// Write enumValues, a way to number strings
 		// First size
-		VarNumberSerializer.writeVarInt(serializer, enumArray.length);
+		VarNumberSerializer.writeVarInt(serializer, struct.enumArray.length);
 		// then one string per index
-		for (String s : enumArray) {
+		for (String s : struct.enumArray) {
 			StringSerializer.writeVarIntUTF8String(serializer, s);
 		}
 
@@ -301,14 +329,11 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		// Write cmdEnums, a way to group the enumValues that can be refered to from
 		// aliases, or from parameter types.
 		// We have a 1-to-1 match between enums and enumGroups.
-		writeEnumGroups(serializer, enumArray);
+		writeEnumGroups(serializer, struct.enumArray);
 
 		// Now process the actual commands. Write on per top-level ("command") node.
-		VarNumberSerializer.writeVarInt(serializer, getNumTopLevelNodes());
-
-		for (int i = 0; i < getNumTopLevelNodes(); i++) {
-			CommandNode node = getTopLevelNode(i);
-
+		VarNumberSerializer.writeVarInt(serializer, topLevelNodes.length);
+		for (CommandNode node : topLevelNodes) {
 			StringSerializer.writeVarIntUTF8String(serializer, node.name);
 			// PC does not have any description, so just send an empty string
 			StringSerializer.writeVarIntUTF8String(serializer, "");
@@ -319,15 +344,14 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			serializer.writeIntLE(-1);
 
 			// Write out all "overloads", i.e. all different ways to call this command with arguments.
-			List<List<PECommandNode>> overloads = allOverloads.get(i);
+			List<List<PECommandNode>> overloads = struct.allOverloads.get(node);
 
 			// First write number of overloads for this command
 			VarNumberSerializer.writeVarInt(serializer, overloads.size());
 
 			for (List<PECommandNode> overload : overloads) {
-				// For this overload, first write number of arguments
+				// For each overload, write out all arguments in order
 				VarNumberSerializer.writeVarInt(serializer, overload.size());
-
 				for (PECommandNode peNode : overload) {
 					writePeNode(serializer, peNode);
 				}
@@ -340,35 +364,15 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		return serializer;
 	}
 
-	private void transformToPEStructure() {
-		// Collect mapping of enum string values to integers in enumIndex
-		Map<String, Integer> enumIndex = new HashMap<>();
-
-		allOverloads = new ArrayList<>(getNumTopLevelNodes());
-		for (int i = 0; i < getNumTopLevelNodes(); i++) {
-			CommandNode node = getTopLevelNode(i);
-
-			List<List<PECommandNode>> overloads = new ArrayList<>();
-				// HashSet<ArrayList<String>>();
-			walkNode(overloads, enumIndex, node, new ArrayList<>());
-			allOverloads.add(overloads);
-		}
-
-		// Convert enumIndex to proper array per index
-		enumArray = new String[enumIndex.size()];
-		for (Map.Entry<String, Integer> entry : enumIndex.entrySet()) {
-			enumArray[entry.getValue()] = entry.getKey();
-		}
-	}
-
 	private void writePeNode(ClientBoundPacketData serializer, PECommandNode peNode) {
 		int flag;
 		if (peNode.argType != null) {
-			// VARIABLE
+			// This is a variable; write the name and it's type
 			StringSerializer.writeVarIntUTF8String(serializer, peNode.name);
 			flag = getPeVariableCode(peNode.argType) | ARG_FLAG_VALID;
 		} else {
-			// LITERAL
+			// This is a literal; write the corresponding enum constant.
+
 			// The literal arguments also has a "name", but it's not used, so leave it empty.
 			// (The actual value shown in the GUI is from the enum group)
 			StringSerializer.writeVarIntUTF8String(serializer, "");
@@ -378,9 +382,10 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			int index = peNode.nameIndex;
 			flag = index | ARG_FLAG_VALID | ARG_FLAG_ENUM;
 		}
+
+		// The "flag" design is really... odd. Bedrock Edition engineers. Don't ask.
 		serializer.writeIntLE(flag);
-		//     byte : is optional (1 = true, 0 = false)
-		serializer.writeByte(0);
+		serializer.writeByte(0); // Boolean IS_OPTIONAL (1 = true). For now, call everything compulsory.
 		serializer.writeByte(0); // Flags? Always 0.
 	}
 
@@ -409,9 +414,9 @@ public class DeclareCommands extends MiddleDeclareCommands {
 
 	@Override
 	public RecyclableCollection<ClientBoundPacketData> toData() {
-		transformToPEStructure();
+		PECommandsStructure struct = buildPEStructure();
 
-		return RecyclableSingletonList.create(create());
+		return RecyclableSingletonList.create(create(struct));
 	}
 }
 
@@ -427,8 +432,6 @@ values.size(): 0
 
 NAME: enchantmentType
 values.size(): 0
-
-Does Enum work with empty names, or do they need to be unique?
 
 Idea: transform brigadier:bool to enum group "true|false". Maybe use soft enum for this?
  */
