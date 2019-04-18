@@ -17,10 +17,8 @@ import protocolsupport.utils.recyclable.RecyclableSingletonList;
 public class Animation extends MiddleEntityAnimation {
 
 	private static final int ANIMATION_ARM_SWING = 1;
-	private static final int ANIMATION_HURT = 2;
 	private static final int ANIMATION_WAKE_UP = 3;
 	private static final int ANIMATION_CRITICAL_DAMAGE = 4;
-	private static final int ANIMATION_EATING_ITEM = 57;
 
 	public Animation(ConnectionImpl connection) {
 		super(connection);
@@ -33,7 +31,7 @@ public class Animation extends MiddleEntityAnimation {
 				return RecyclableSingletonList.create(create(entityId, ANIMATION_ARM_SWING));
 			}
 			case TAKE_DAMAGE: {
-				return RecyclableSingletonList.create(EntityStatus.create(entityId, ANIMATION_HURT));
+				return RecyclableSingletonList.create(EntityStatus.create(entityId, EntityStatus.ANIMATION_HURT));
 			}
 			case WAKE_UP: {
 				RecyclableArrayList<ClientBoundPacketData> packets = RecyclableArrayList.create();
@@ -48,13 +46,14 @@ public class Animation extends MiddleEntityAnimation {
 				return packets;
 			}
 			case EAT: {
-				return RecyclableSingletonList.create(EntityStatus.create(entityId, ANIMATION_EATING_ITEM));
+				return RecyclableSingletonList.create(EntityStatus.create(entityId, EntityStatus.EATING_ITEM));
 			}
 			case CRIT:
 			case MAGIC_CRIT: {
 				return RecyclableSingletonList.create(create(entityId, ANIMATION_CRITICAL_DAMAGE));
 			}
 			default: {
+				System.out.println("MISSING ANIMATION:" + animation);
 				return RecyclableEmptyList.get();
 			}
 		}

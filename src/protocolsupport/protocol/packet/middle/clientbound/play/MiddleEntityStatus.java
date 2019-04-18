@@ -17,6 +17,8 @@ public abstract class MiddleEntityStatus extends ClientBoundMiddlePacket {
 	public void readFromServerData(ByteBuf serverdata) {
 		entityId = serverdata.readInt();
 		status = serverdata.readUnsignedByte();
+		System.out.println("EntityStatus clientbound:" + this);
+
 	}
 
 }

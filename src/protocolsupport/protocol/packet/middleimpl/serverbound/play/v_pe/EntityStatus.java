@@ -30,6 +30,7 @@ public class EntityStatus extends ServerBoundMiddlePacket {
 		entityId = VarNumberSerializer.readSVarLong(clientdata);
 		status = clientdata.readByte();
 		data = VarNumberSerializer.readSVarInt(clientdata);
+		System.out.println("EntityStatus serverbound:" + this);
 	}
 
 	@Override

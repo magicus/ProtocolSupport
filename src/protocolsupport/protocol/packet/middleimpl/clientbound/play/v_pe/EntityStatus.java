@@ -14,6 +14,8 @@ import protocolsupport.utils.recyclable.RecyclableSingletonList;
 
 public class EntityStatus extends MiddleEntityStatus {
 
+	public static final int ANIMATION_HURT = 2;
+	public static final int EATING_ITEM = 57;
 	/* The UNLEASH entity status is sent from the EntityLeash packet */
 	public static final int UNLEASH = 63;
 
@@ -29,6 +31,7 @@ public class EntityStatus extends MiddleEntityStatus {
 		}
 		NetworkEntityType entityType = entity.getType();
 		int peStatus = PEDataValues.getEntityStatusRemap(status, entityType);
+		System.out.println("Remapping " + status + " to " + peStatus);
 		if (peStatus == -1) {
 			return RecyclableEmptyList.get();
 		}
