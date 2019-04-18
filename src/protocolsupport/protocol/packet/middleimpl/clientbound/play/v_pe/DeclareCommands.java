@@ -115,8 +115,12 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			this.name = node.getName();
 			this.argType = node.getArgType();
 
-			// Cache enum index
-			this.nameIndex = peStruct.registerLiteral(this.name);
+			// Cache enum index if this is a literal type
+			if (this.argType == null) {
+				this.nameIndex = peStruct.registerLiteral(this.name);
+			} else {
+				this.nameIndex = -1;
+			}
 		}
 
 		public String getName() {
@@ -473,9 +477,6 @@ public class DeclareCommands extends MiddleDeclareCommands {
 /*
 TODO:
 fix aliases. PC has redirect, PE has an EnumSet as alias.
-
-only cache enum if it's not an argType...
-
 add proper value for "optional" flag.
 
 It could be that these Enums correspond to special types..?
