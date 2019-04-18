@@ -61,7 +61,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 	public static final int ARG_TYPE_COMMAND = 44;
 
 	public static final int ARG_FLAG_VALID = 0x100000;
-	public static final int ARG_FLAG_ENUM = 0x200000;
+	public static final int ARG_FLAG_LITERAL = 0x200000;
 
 	private CommandNode[] allNodes;
 	private CommandNode[] topLevelNodes; // A subset of allNodes containing the starting "command" nodes
@@ -115,7 +115,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			this.name = node.getName();
 			this.argType = node.getArgType();
 
-			// Cache enum index if this is a literal type
+			// Cache literal index, if this is a literal argument
 			if (this.argType == null) {
 				this.nameIndex = peStruct.registerLiteral(this.name);
 			} else {
@@ -174,7 +174,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		public String[] getLiteralArray() {
 			// Not thread safe...
 			if (literalArray == null) {
-				// Convert enumRegister to proper array per index
+				// Convert literalRegistry to proper array using assigned indices
 				literalArray = new String[literalRegistry.size()];
 				for (Map.Entry<String, Integer> entry : literalRegistry.entrySet()) {
 					literalArray[entry.getValue()] = entry.getKey();
@@ -427,16 +427,16 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			StringSerializer.writeVarIntUTF8String(serializer, argumentNode.getName());
 			flag = getPEArgTypeCode(argumentNode.getArgType()) | ARG_FLAG_VALID;
 		} else {
-			// This is a literal; write the corresponding enum constant.
+			// This is a literal argument
 
 			// The literal arguments also has a "name", but it's not used, so leave it empty.
-			// (The actual value shown in the GUI is from the enum group)
+			// (The actual value shown in the GUI is from the literal group)
 			StringSerializer.writeVarIntUTF8String(serializer, "");
 
-			// In theory, this is the index into the enumGroups, but we have the same index
-			// to our single enum so we can use that without conversion.
+			// In theory, this is the index of a literal group, but we have the same index
+			// in our literal array so we can use that without conversion.
 			int index = argumentNode.getNameIndex();
-			flag = index | ARG_FLAG_VALID | ARG_FLAG_ENUM;
+			flag = index | ARG_FLAG_VALID | ARG_FLAG_LITERAL;
 		}
 
 		// The "flag" design is really... odd. Bedrock Edition engineers. Don't ask.
@@ -473,62 +473,3 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		}
 	}
 }
-
-/*
-TODO:
-fix aliases. PC has redirect, PE has an EnumSet as alias.
-add proper value for "optional" flag.
-
-It could be that these Enums correspond to special types..?
-NAME: itemType
-values.size(): 0
-
-NAME: enchantmentType
-values.size(): 0
-
-Idea: transform brigadier:bool to enum group "true|false". Maybe use soft enum for this?
- */
-
-/*
-ArgumentRegistry.a(new MinecraftKey("brigadier:bool"), BoolArgumentType.class, new ArgumentSerializerVoid(BoolArgumentType::bool));
-ArgumentRegistry.a(new MinecraftKey("brigadier:float"), FloatArgumentType.class, new ArgumentSerializerFloat());
-ArgumentRegistry.a(new MinecraftKey("brigadier:double"), DoubleArgumentType.class, new ArgumentSerializerDouble());
-ArgumentRegistry.a(new MinecraftKey("brigadier:integer"), IntegerArgumentType.class, new ArgumentSerializerInteger());
-ArgumentRegistry.a(new MinecraftKey("brigadier:string"), StringArgumentType.class, new ArgumentSerializerString());
-
-a(new MinecraftKey("minecraft:entity"), ArgumentEntity.class, new net.minecraft.server.v1_13_R2.ArgumentEntity.a());
-a(new MinecraftKey("minecraft:score_holder"), ArgumentScoreholder.class, new c());
-a(new MinecraftKey("minecraft:int_range"), b.class, new net.minecraft.server.v1_13_R2.ArgumentCriterionValue.b.a());
-a(new MinecraftKey("minecraft:float_range"), net.minecraft.server.v1_13_R2.ArgumentCriterionValue.a.class, new net.minecraft.server.v1_13_R2.ArgumentCriterionValue.a.a());
-
-a(new MinecraftKey("minecraft:game_profile"), ArgumentProfile.class, new ArgumentSerializerVoid(ArgumentProfile::a));
-a(new MinecraftKey("minecraft:block_pos"), ArgumentPosition.class, new ArgumentSerializerVoid(ArgumentPosition::a));
-a(new MinecraftKey("minecraft:column_pos"), ArgumentVec2I.class, new ArgumentSerializerVoid(ArgumentVec2I::a));
-a(new MinecraftKey("minecraft:vec3"), ArgumentVec3.class, new ArgumentSerializerVoid(ArgumentVec3::a));
-a(new MinecraftKey("minecraft:vec2"), ArgumentVec2.class, new ArgumentSerializerVoid(ArgumentVec2::a));
-a(new MinecraftKey("minecraft:block_state"), ArgumentTile.class, new ArgumentSerializerVoid(ArgumentTile::a));
-a(new MinecraftKey("minecraft:block_predicate"), ArgumentBlockPredicate.class, new ArgumentSerializerVoid(ArgumentBlockPredicate::a));
-a(new MinecraftKey("minecraft:item_stack"), ArgumentItemStack.class, new ArgumentSerializerVoid(ArgumentItemStack::a));
-a(new MinecraftKey("minecraft:item_predicate"), ArgumentItemPredicate.class, new ArgumentSerializerVoid(ArgumentItemPredicate::a));
-a(new MinecraftKey("minecraft:color"), ArgumentChatFormat.class, new ArgumentSerializerVoid(ArgumentChatFormat::a));
-a(new MinecraftKey("minecraft:component"), ArgumentChatComponent.class, new ArgumentSerializerVoid(ArgumentChatComponent::a));
-a(new MinecraftKey("minecraft:message"), ArgumentChat.class, new ArgumentSerializerVoid(ArgumentChat::a));
-a(new MinecraftKey("minecraft:nbt"), ArgumentNBTTag.class, new ArgumentSerializerVoid(ArgumentNBTTag::a));
-a(new MinecraftKey("minecraft:nbt_path"), ArgumentNBTKey.class, new ArgumentSerializerVoid(ArgumentNBTKey::a));
-a(new MinecraftKey("minecraft:objective"), ArgumentScoreboardObjective.class, new ArgumentSerializerVoid(ArgumentScoreboardObjective::a));
-a(new MinecraftKey("minecraft:objective_criteria"), ArgumentScoreboardCriteria.class, new ArgumentSerializerVoid(ArgumentScoreboardCriteria::a));
-a(new MinecraftKey("minecraft:operation"), ArgumentMathOperation.class, new ArgumentSerializerVoid(ArgumentMathOperation::a));
-a(new MinecraftKey("minecraft:particle"), ArgumentParticle.class, new ArgumentSerializerVoid(ArgumentParticle::a));
-a(new MinecraftKey("minecraft:rotation"), ArgumentRotation.class, new ArgumentSerializerVoid(ArgumentRotation::a));
-a(new MinecraftKey("minecraft:scoreboard_slot"), ArgumentScoreboardSlot.class, new ArgumentSerializerVoid(ArgumentScoreboardSlot::a));
-a(new MinecraftKey("minecraft:swizzle"), ArgumentRotationAxis.class, new ArgumentSerializerVoid(ArgumentRotationAxis::a));
-a(new MinecraftKey("minecraft:team"), ArgumentScoreboardTeam.class, new ArgumentSerializerVoid(ArgumentScoreboardTeam::a));
-a(new MinecraftKey("minecraft:item_slot"), ArgumentInventorySlot.class, new ArgumentSerializerVoid(ArgumentInventorySlot::a));
-a(new MinecraftKey("minecraft:resource_location"), ArgumentMinecraftKeyRegistered.class, new ArgumentSerializerVoid(ArgumentMinecraftKeyRegistered::a));
-a(new MinecraftKey("minecraft:mob_effect"), ArgumentMobEffect.class, new ArgumentSerializerVoid(ArgumentMobEffect::a));
-a(new MinecraftKey("minecraft:function"), ArgumentTag.class, new ArgumentSerializerVoid(ArgumentTag::a));
-a(new MinecraftKey("minecraft:entity_anchor"), ArgumentAnchor.class, new ArgumentSerializerVoid(ArgumentAnchor::a));
-a(new MinecraftKey("minecraft:item_enchantment"), ArgumentEnchantment.class, new ArgumentSerializerVoid(ArgumentEnchantment::a));
-a(new MinecraftKey("minecraft:entity_summon"), ArgumentEntitySummon.class, new ArgumentSerializerVoid(ArgumentEntitySummon::a));
-a(new MinecraftKey("minecraft:dimension"), ArgumentDimension.class, new ArgumentSerializerVoid(ArgumentDimension::a));
-*/
