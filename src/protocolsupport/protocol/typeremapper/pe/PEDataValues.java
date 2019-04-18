@@ -284,7 +284,7 @@ public class PEDataValues {
 			registerRemapEntry(Particle.BARRIER.ordinal(), PELevelEvent.PARTICLE_BLOCK_FORCE_FIELD, ProtocolVersionsHelper.ALL_PE); //Speculative
 			registerRemapEntry(Particle.WATER_DROP.ordinal(), PELevelEvent.CAULDRON_TAKE_WATER, ProtocolVersionsHelper.ALL_PE); //Speculative
 			registerRemapEntry(Particle.DRAGON_BREATH.ordinal(), PELevelEvent.PARTICLE_DRAGONS_BREATH, ProtocolVersionsHelper.ALL_PE);
-			registerRemapEntry(Particle.END_ROD.ordinal(), PELevelEvent.PARTICLE_END_ROT, ProtocolVersionsHelper.ALL_PE);
+			registerRemapEntry(Particle.END_ROD.ordinal(), PELevelEvent.PARTICLE_END_ROD, ProtocolVersionsHelper.ALL_PE);
 			registerRemapEntry(Particle.FALLING_DUST.ordinal(), PELevelEvent.PARTICLE_FALLING_DUST, ProtocolVersionsHelper.ALL_PE);
 		}
 
@@ -383,7 +383,7 @@ public class PEDataValues {
 		registerEntityStatusRemap(9, 9); // USE_ITEM
 		registerEntityStatusRemap(10, 10, NetworkEntityType.SHEEP); // EAT_GRASS_ANIMATION
 		registerEntityStatusRemap(10, 10, NetworkEntityType.COMMON_HORSE); // EAT_GRASS_ANIMATION
-		registerEntityStatusRemap(10, 10, NetworkEntityType.MINECART_TNT); // MINECART_TNT_PRIME_FUSE
+		registerEntityStatusRemap(10, 31, NetworkEntityType.MINECART_TNT); // MINECART_TNT_PRIME_FUSE
 		registerEntityStatusRemap(11, 19); // IRON_GOLEM_OFFER_FLOWER
 		registerEntityStatusRemap(15, 24); // WITCH_SPELL_PARTICLES
 		registerEntityStatusRemap(16, 16); // ZOMBIE_VILLAGER_CURE

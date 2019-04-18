@@ -119,7 +119,7 @@ public class PELevelEvent {
 		PARTICLE_WITCH_SPELL 				= PARTICLE | 37,
 		PARTICLE_CARROT 					= PARTICLE | 38,
 		PARTICLE_UNKNOWN_1 					= PARTICLE | 39,
-		PARTICLE_END_ROT 					= PARTICLE | 40,
+		PARTICLE_END_ROD					= PARTICLE | 40,
 		PARTICLE_DRAGONS_BREATH 			= PARTICLE | 41;
 
 	public static ClientBoundPacketData createPacket(int levelEvent, float x, float y, float z, int data) {
