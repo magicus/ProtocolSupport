@@ -121,10 +121,21 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		private String argType;
 		private int nameIndex;
 
-		public PECommandNode(String name, String argType, int nameIndex) {
+		public PECommandNode(String name, String argType, Map<String, Integer> enumIndex) {
 			this.name = name;
 			this.argType = argType;
-			this.nameIndex = nameIndex;
+
+			// Cache enum index
+			Integer enumPos = enumIndex.get(name);
+			int index;
+			if (enumPos == null) {
+				index = enumIndex.size();
+				enumIndex.put(name, index);
+			} else {
+				index = enumPos;
+			}
+
+			this.nameIndex = index;
 		}
 	}
 
@@ -277,16 +288,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 		if (currentNode.isLeaf()) {
 			List<PECommandNode> newOverload = new ArrayList<>();
 			for (CommandNode node : previousNodes) {
-				// FIXME: We should really add all PE data here
-				Integer enumPos = enumIndex.get(node.name);
-				int index;
-				if (enumPos == null) {
-					index = enumIndex.size();
-					enumIndex.put(node.name, index);
-				} else {
-					index = enumPos;
-				}
-				PECommandNode peNode = new PECommandNode(node.name, node.argType, index);
+				PECommandNode peNode = new PECommandNode(node.name, node.argType, enumIndex);
 				newOverload.add(peNode);
 			}
 			overloads.add(newOverload);
@@ -373,8 +375,6 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			serializer.writeIntLE(-1);
 
 			// Write out all "overloads", i.e. all different ways to call this command with arguments.
-
-
 			List<List<PECommandNode>> overloads = allOverloads.get(i);
 			VarNumberSerializer.writeVarInt(serializer, overloads.size());
 
@@ -383,41 +383,28 @@ public class DeclareCommands extends MiddleDeclareCommands {
 				VarNumberSerializer.writeVarInt(serializer, overload.size());
 
 				for (PECommandNode peNode : overload) {
-					// In theory, this is the index into the enumGroups, but we have the same index
-					// to our single enum.
-					int index = peNode.nameIndex;
-					if (index >= (enumIndex.size()-20)) {
-						index = 1;
-					}
+					int flag;
 					if (peNode.argType != null) {
-						// VAFRIABLE
+						// VARIABLE
 						StringSerializer.writeVarIntUTF8String(serializer, peNode.name);
-						//     public static final int ARG_FLAG_VALID = 0x100000;
-						//    public static final int ARG_FLAG_ENUM = 0x200000;
-//					flag = flag | 0x100000 | 0x200000;
-						int flag = getPeVariableCode(peNode.argType) | 0x100000;
+						flag = getPeVariableCode(peNode.argType) | 0x100000;
 
-						serializer.writeIntLE(flag);
 						System.out.println("variable: " + peNode.name);
 					} else {
 						// LITERAL
 						StringSerializer.writeVarIntUTF8String(serializer, "'" + peNode.name + "'");
-						//     public static final int ARG_FLAG_VALID = 0x100000;
-						//    public static final int ARG_FLAG_ENUM = 0x200000;
-//					flag = flag | 0x100000 | 0x200000;
-						int flag = index | 0x100000 | 0x200000;
 
-						serializer.writeIntLE(flag);
+						// In theory, this is the index into the enumGroups, but we have the same index
+						// to our single enum.
+						int index = peNode.nameIndex;
+						if (index >= (enumIndex.size()-20)) {
+							index = 1;
+						}
+						flag = index | 0x100000 | 0x200000;
+
 						System.out.println("literal: " + peNode.name);
 					}
-				//	StringSerializer.writeVarIntUTF8String(serializer,  enumArray[index] );
-					System.out.println("sending " + enumArray[index]);
-					//     public static final int ARG_FLAG_VALID = 0x100000;
-					//    public static final int ARG_FLAG_ENUM = 0x200000;
-//					flag = flag | 0x100000 | 0x200000;
-					int flag = ARG_TYPE_INT | 0x100000;
-
-			//		serializer.writeIntLE(flag);
+					serializer.writeIntLE(flag);
 					//     byte : is optional (1 = true, 0 = false)
 					serializer.writeByte(0);
 					serializer.writeByte(0); // Flags? Always 0.
@@ -528,7 +515,7 @@ public class DeclareCommands extends MiddleDeclareCommands {
 			*/
 		}
 
-		// "Soft enums". First write number of "soft enums". We never have any, so no further data is needed.
+		// Write "soft enums". Start with the count. We don't have any, so ignore the structure.
 		VarNumberSerializer.writeVarInt(serializer, 0);
 
 		return serializer;
