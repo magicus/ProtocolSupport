@@ -134,8 +134,7 @@ public class StartGame extends MiddleStartGame {
 		packets.add(chunkradius);
 
 		ClientBoundPacketData enableCommandsPacket = ClientBoundPacketData.create(PEPacketIDs.SET_COMMANDS_ENABLED);
-	//	enableCommandsPacket.writeBoolean(true); // enable commands
-		enableCommandsPacket.writeByte(1);
+		enableCommandsPacket.writeBoolean(true);
 		packets.add(enableCommandsPacket);
 
 		PECreativeInventory peInv = PECreativeInventory.getInstance();
